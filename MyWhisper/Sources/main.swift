@@ -9,7 +9,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Create Status Item
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "mic.fill", accessibilityDescription: "MyWhisper")
+            button.image = NSImage.customWaveformIcon()
+            button.image?.accessibilityDescription = "MyWhisper"
         }
         
         let menu = NSMenu()

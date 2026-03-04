@@ -14,7 +14,7 @@ class Transcriber {
         
         let audioData = try Data(contentsOf: audioURL)
         
-        var request = URLRequest(url: URL(string: "https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true")!)
+        var request = URLRequest(url: URL(string: "https://api.deepgram.com/v1/listen?model=nova-3&smart_format=true")!)
         request.httpMethod = "POST"
         request.addValue("Token \(apiKey)", forHTTPHeaderField: "Authorization")
         request.addValue("audio/m4a", forHTTPHeaderField: "Content-Type")

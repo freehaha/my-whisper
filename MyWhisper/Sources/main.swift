@@ -4,6 +4,10 @@ import AVFoundation
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
+
+    @objc func openSettings() {
+        SettingsWindowController.shared.show()
+    }
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Create Status Item
@@ -14,6 +18,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         
         let menu = NSMenu()
+        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit MyWhisper", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem.menu = menu
         

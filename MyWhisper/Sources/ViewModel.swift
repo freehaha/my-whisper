@@ -35,7 +35,7 @@ class ViewModel: ObservableObject, @unchecked Sendable {
             self?.abortRecording()
         }
         
-        HotkeyManager.shared.registerHotkeys()
+        HotkeyManager.shared.registerHotkeysFromConfig()
     }
     
     func toggleRecording() {

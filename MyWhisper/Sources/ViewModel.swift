@@ -34,6 +34,12 @@ class ViewModel: ObservableObject, @unchecked Sendable {
         HotkeyManager.shared.onAbort = { [weak self] in
             self?.abortRecording()
         }
+
+        HotkeyManager.shared.onShowHistory = {
+            DispatchQueue.main.async {
+                HistoryWindowController.shared.show()
+            }
+        }
         
         HotkeyManager.shared.registerHotkeysFromConfig()
     }
@@ -93,6 +99,7 @@ class ViewModel: ObservableObject, @unchecked Sendable {
                 DispatchQueue.main.async {
                     self.state = .done
                     SoundManager.shared.playSuccess()
+                    TranscriptionHistoryStore.shared.add(finalText)
                     Paster.paste(text: finalText)
                     self.resetStateAfterDelay()
                 }

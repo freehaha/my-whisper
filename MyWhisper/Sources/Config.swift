@@ -14,6 +14,11 @@ struct HotkeyBinding: Codable, Equatable {
         keyCode: UInt32(kVK_ANSI_X),
         modifiers: UInt32(cmdKey | optionKey)
     )
+
+    static let defaultHistory = HotkeyBinding(
+        keyCode: UInt32(kVK_ANSI_H),
+        modifiers: UInt32(cmdKey | optionKey)
+    )
 }
 
 struct Config: Codable {
@@ -23,6 +28,7 @@ struct Config: Codable {
     var refinementPrompt: String?
     var toggleHotkey: HotkeyBinding
     var abortHotkey: HotkeyBinding
+    var historyHotkey: HotkeyBinding
 
     init(
         deepgramApiKey: String,
@@ -30,7 +36,8 @@ struct Config: Codable {
         enableRefinement: Bool,
         refinementPrompt: String?,
         toggleHotkey: HotkeyBinding = .defaultToggle,
-        abortHotkey: HotkeyBinding = .defaultAbort
+        abortHotkey: HotkeyBinding = .defaultAbort,
+        historyHotkey: HotkeyBinding = .defaultHistory
     ) {
         self.deepgramApiKey = deepgramApiKey
         self.openaiApiKey = openaiApiKey
@@ -38,6 +45,7 @@ struct Config: Codable {
         self.refinementPrompt = refinementPrompt
         self.toggleHotkey = toggleHotkey
         self.abortHotkey = abortHotkey
+        self.historyHotkey = historyHotkey
     }
 
     enum CodingKeys: String, CodingKey {
@@ -47,6 +55,7 @@ struct Config: Codable {
         case refinementPrompt
         case toggleHotkey
         case abortHotkey
+        case historyHotkey
     }
 
     init(from decoder: Decoder) throws {
@@ -58,6 +67,7 @@ struct Config: Codable {
             ?? "Fix spelling and grammar. Return only the fixed text."
         toggleHotkey = try container.decodeIfPresent(HotkeyBinding.self, forKey: .toggleHotkey) ?? .defaultToggle
         abortHotkey = try container.decodeIfPresent(HotkeyBinding.self, forKey: .abortHotkey) ?? .defaultAbort
+        historyHotkey = try container.decodeIfPresent(HotkeyBinding.self, forKey: .historyHotkey) ?? .defaultHistory
     }
 
     static var configURL: URL {
@@ -81,7 +91,8 @@ struct Config: Codable {
             enableRefinement: false,
             refinementPrompt: "Fix spelling and grammar. Return only the fixed text.",
             toggleHotkey: .defaultToggle,
-            abortHotkey: .defaultAbort
+            abortHotkey: .defaultAbort,
+            historyHotkey: .defaultHistory
         )
 
         try? defaultConfig.save()

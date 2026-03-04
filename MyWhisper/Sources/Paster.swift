@@ -2,6 +2,12 @@ import Cocoa
 import CoreGraphics
 
 class Paster {
+    static func copyToClipboard(text: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+    }
+
     static func paste(text: String) {
         let pasteboard = NSPasteboard.general
         let previousItems: [NSPasteboardItem] = pasteboard.pasteboardItems?.compactMap { item in

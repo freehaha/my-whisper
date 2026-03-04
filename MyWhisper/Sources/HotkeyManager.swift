@@ -6,16 +6,19 @@ class HotkeyManager {
 
     var onToggle: (() -> Void)?
     var onAbort: (() -> Void)?
+    var onShowHistory: (() -> Void)?
 
     private var toggleHotKeyRef: EventHotKeyRef?
     private var abortHotKeyRef: EventHotKeyRef?
+    private var historyHotKeyRef: EventHotKeyRef?
     private var eventHandlerRef: EventHandlerRef?
 
     private let toggleID = EventHotKeyID(signature: OSType(0x5447474C), id: 1) // TGGL
     private let abortID = EventHotKeyID(signature: OSType(0x41425254), id: 2)  // ABRT
+    private let historyID = EventHotKeyID(signature: OSType(0x48535459), id: 3) // HSTY
 
     @discardableResult
-    func registerHotkeys(toggle: HotkeyBinding, abort: HotkeyBinding) -> Bool {
+    func registerHotkeys(toggle: HotkeyBinding, abort: HotkeyBinding, history: HotkeyBinding) -> Bool {
         installEventHandlerIfNeeded()
 
         unregisterHotkeys()
@@ -38,8 +41,17 @@ class HotkeyManager {
             &abortHotKeyRef
         )
 
-        if toggleStatus != noErr || abortStatus != noErr {
-            print("Failed to register hotkeys. Toggle status: \(toggleStatus), Abort status: \(abortStatus)")
+        let historyStatus = RegisterEventHotKey(
+            history.keyCode,
+            history.modifiers,
+            historyID,
+            GetApplicationEventTarget(),
+            0,
+            &historyHotKeyRef
+        )
+
+        if toggleStatus != noErr || abortStatus != noErr || historyStatus != noErr {
+            print("Failed to register hotkeys. Toggle status: \(toggleStatus), Abort status: \(abortStatus), History status: \(historyStatus)")
             return false
         }
 
@@ -49,7 +61,7 @@ class HotkeyManager {
     @discardableResult
     func registerHotkeysFromConfig() -> Bool {
         let config = Config.load()
-        return registerHotkeys(toggle: config.toggleHotkey, abort: config.abortHotkey)
+        return registerHotkeys(toggle: config.toggleHotkey, abort: config.abortHotkey, history: config.historyHotkey)
     }
 
     private func installEventHandlerIfNeeded() {
@@ -75,6 +87,8 @@ class HotkeyManager {
                     HotkeyManager.shared.onToggle?()
                 case 2:
                     HotkeyManager.shared.onAbort?()
+                case 3:
+                    HotkeyManager.shared.onShowHistory?()
                 default:
                     break
                 }
@@ -107,6 +121,11 @@ class HotkeyManager {
         if let abortHotKeyRef {
             UnregisterEventHotKey(abortHotKeyRef)
             self.abortHotKeyRef = nil
+        }
+
+        if let historyHotKeyRef {
+            UnregisterEventHotKey(historyHotKeyRef)
+            self.historyHotKeyRef = nil
         }
     }
 }

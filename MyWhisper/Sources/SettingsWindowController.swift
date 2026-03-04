@@ -7,7 +7,7 @@ class SettingsWindowController: NSWindowController {
 
     init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 460, height: 210),
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 260),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -28,7 +28,8 @@ class SettingsWindowController: NSWindowController {
         let config = Config.load()
         let settingsView = SettingsView(
             initialToggleHotkey: config.toggleHotkey,
-            initialAbortHotkey: config.abortHotkey
+            initialAbortHotkey: config.abortHotkey,
+            initialHistoryHotkey: config.historyHotkey
         )
 
         window?.contentView = NSHostingView(rootView: settingsView)
@@ -40,19 +41,22 @@ class SettingsWindowController: NSWindowController {
 private enum CaptureTarget {
     case toggle
     case abort
+    case history
 }
 
 struct SettingsView: View {
     @State private var toggleHotkey: HotkeyBinding
     @State private var abortHotkey: HotkeyBinding
+    @State private var historyHotkey: HotkeyBinding
     @State private var captureTarget: CaptureTarget?
     @State private var keyboardMonitor: Any?
     @State private var message: String?
     @State private var isError = false
 
-    init(initialToggleHotkey: HotkeyBinding, initialAbortHotkey: HotkeyBinding) {
+    init(initialToggleHotkey: HotkeyBinding, initialAbortHotkey: HotkeyBinding, initialHistoryHotkey: HotkeyBinding) {
         _toggleHotkey = State(initialValue: initialToggleHotkey)
         _abortHotkey = State(initialValue: initialAbortHotkey)
+        _historyHotkey = State(initialValue: initialHistoryHotkey)
     }
 
     var body: some View {
@@ -63,6 +67,7 @@ struct SettingsView: View {
 
             hotkeyRow(title: "Start / Stop Recording", hotkey: toggleHotkey, target: .toggle)
             hotkeyRow(title: "Abort Recording", hotkey: abortHotkey, target: .abort)
+            hotkeyRow(title: "Show History", hotkey: historyHotkey, target: .history)
 
             Text(captureTarget == nil ? "Use at least one modifier key (⌘, ⌥, ⌃, ⇧)." : "Press a key combination now (Esc to cancel).")
                 .font(.footnote)
@@ -86,7 +91,7 @@ struct SettingsView: View {
             }
         }
         .padding(18)
-        .frame(width: 460)
+        .frame(width: 500)
         .onAppear {
             installKeyboardMonitor()
         }
@@ -158,6 +163,8 @@ struct SettingsView: View {
             toggleHotkey = captured
         case .abort:
             abortHotkey = captured
+        case .history:
+            historyHotkey = captured
         }
 
         self.captureTarget = nil
@@ -166,15 +173,15 @@ struct SettingsView: View {
     }
 
     private func saveHotkeys() {
-        if toggleHotkey == abortHotkey {
+        if toggleHotkey == abortHotkey || toggleHotkey == historyHotkey || abortHotkey == historyHotkey {
             isError = true
-            message = "Start/Stop and Abort cannot use the same shortcut."
+            message = "All shortcuts must be different."
             return
         }
 
-        guard HotkeyManager.shared.registerHotkeys(toggle: toggleHotkey, abort: abortHotkey) else {
+        guard HotkeyManager.shared.registerHotkeys(toggle: toggleHotkey, abort: abortHotkey, history: historyHotkey) else {
             isError = true
-            message = "Unable to register one or both shortcuts. Try a different combination."
+            message = "Unable to register one or more shortcuts. Try a different combination."
             return
         }
 
@@ -182,6 +189,7 @@ struct SettingsView: View {
             var config = Config.load()
             config.toggleHotkey = toggleHotkey
             config.abortHotkey = abortHotkey
+            config.historyHotkey = historyHotkey
             try config.save()
             isError = false
             message = "Hotkeys saved."

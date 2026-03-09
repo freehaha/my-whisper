@@ -48,6 +48,7 @@ endif()
 qt_add_executable(MyWhisperQt
     MACOSX_BUNDLE
     ${MYWHISPER_QT_SOURCES}
+    resources/resources.qrc
     src/app_controller.h
     src/audio_recorder.h
     src/config.h

@@ -54,6 +54,7 @@ There is also a helper script:
 - The Linux implementation targets **X11/xcb**, not Wayland.
 - Global hotkeys use `XGrabKey`.
 - On Linux X11, completed transcriptions are copied to both the regular clipboard and the PRIMARY selection instead of being auto-pasted, so terminal users can paste manually.
+- Audio cues use a bundled short ding sound instead of relying on the desktop/system beep.
 - Default Linux hotkeys are `Ctrl+Alt+R`, `Ctrl+Alt+X`, and `Ctrl+Alt+H`.
 - You need the Qt 6 development packages plus X11/XTest development libraries.
 

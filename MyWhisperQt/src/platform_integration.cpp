@@ -1,8 +1,38 @@
 #include "platform_integration.h"
 
-#include <QApplication>
 #include <QClipboard>
 #include <QGuiApplication>
+#include <QSoundEffect>
+#include <QUrl>
+
+namespace {
+QSoundEffect *dingEffect() {
+    static QSoundEffect *effect = []() {
+        auto *sound = new QSoundEffect(qApp);
+        sound->setSource(QUrl(QStringLiteral("qrc:/sounds/ding.wav")));
+        sound->setLoopCount(1);
+        sound->setVolume(0.7f);
+        return sound;
+    }();
+    return effect;
+}
+
+QSoundEffect *completedEffect() {
+    static QSoundEffect *effect = []() {
+        auto *sound = new QSoundEffect(qApp);
+        sound->setSource(QUrl(QStringLiteral("qrc:/sounds/completed.wav")));
+        sound->setLoopCount(1);
+        sound->setVolume(0.7f);
+        return sound;
+    }();
+    return effect;
+}
+
+void playEffect(QSoundEffect *effect) {
+    effect->stop();
+    effect->play();
+}
+}
 
 namespace PlatformIntegration {
 bool ensureAccessibilityPermissionPrompted() {
@@ -18,27 +48,22 @@ void copyToClipboard(const QString &text) {
 }
 
 void pasteText(const QString &text) {
-#if defined(Q_OS_LINUX)
     copyToClipboard(text);
-#else
-    copyToClipboard(text);
-#endif
-    QApplication::beep();
 }
 
 void playStartSound() {
-    QApplication::beep();
+    playEffect(dingEffect());
 }
 
 void playStopSound() {
-    QApplication::beep();
+    playEffect(dingEffect());
 }
 
 void playSuccessSound() {
-    QApplication::beep();
+    playEffect(completedEffect());
 }
 
 void playErrorSound() {
-    QApplication::beep();
+    playEffect(dingEffect());
 }
 }

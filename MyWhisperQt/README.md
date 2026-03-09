@@ -53,7 +53,7 @@ There is also a helper script:
 
 - The Linux implementation targets **X11/xcb**, not Wayland.
 - Global hotkeys use `XGrabKey`.
-- Paste automation uses the X11 clipboard plus a synthetic `Ctrl+V` keypress.
+- On Linux X11, completed transcriptions are copied to both the regular clipboard and the PRIMARY selection instead of being auto-pasted, so terminal users can paste manually.
 - Default Linux hotkeys are `Ctrl+Alt+R`, `Ctrl+Alt+X`, and `Ctrl+Alt+H`.
 - You need the Qt 6 development packages plus X11/XTest development libraries.
 
@@ -66,4 +66,4 @@ sudo apt install qt6-base-dev qt6-multimedia-dev libx11-dev libxtst-dev pkg-conf
 ## Notes
 
 - If you run this under Wayland, use `QT_QPA_PLATFORM=xcb` from an X11 session/XWayland-capable environment.
-- Some Linux apps (especially terminals) may not accept synthetic `Ctrl+V`; in those cases the transcript is still copied to the clipboard/history.
+- This avoids synthetic paste on Linux so terminals can use their normal manual paste flow (for example middle-click or Shift+Insert, depending on the terminal).

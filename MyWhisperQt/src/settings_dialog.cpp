@@ -5,7 +5,9 @@
 #include "hotkey_formatter.h"
 
 #include <QApplication>
+#include <QAudioDevice>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QEvent>
 #include <QFormLayout>
@@ -14,14 +16,22 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMediaDevices>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QVBoxLayout>
+
+namespace {
+QString encodeAudioDeviceId(const QAudioDevice &device) {
+    return QString::fromLatin1(device.id().toBase64());
+}
+}
 
 SettingsDialog::SettingsDialog(QWidget *parent)
     : QDialog(parent) {
     setWindowTitle(tr("MyWhisperQt Settings"));
-    resize(560, 420);
+    resize(560, 470);
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(18, 18, 18, 18);
@@ -42,6 +52,15 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     apiLayout->addRow(QString(), m_enableRefinementCheck);
     apiLayout->addRow(tr("OpenAI API key"), m_openAiApiKeyEdit);
     apiLayout->addRow(tr("Refinement prompt"), m_refinementPromptEdit);
+
+    m_mediaDevices = new QMediaDevices(this);
+
+    auto *behaviorGroup = new QGroupBox(tr("Behavior"), this);
+    auto *behaviorLayout = new QFormLayout(behaviorGroup);
+    m_showDoneScreenCheck = new QCheckBox(tr("Show temporary Done overlay after successful transcription"), behaviorGroup);
+    m_audioInputCombo = new QComboBox(behaviorGroup);
+    behaviorLayout->addRow(QString(), m_showDoneScreenCheck);
+    behaviorLayout->addRow(tr("Audio input device"), m_audioInputCombo);
 
     auto *hotkeyGroup = new QGroupBox(tr("Hotkeys"), this);
     auto *hotkeyLayout = new QGridLayout(hotkeyGroup);
@@ -76,6 +95,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Close, this);
 
     layout->addWidget(apiGroup);
+    layout->addWidget(behaviorGroup);
     layout->addWidget(hotkeyGroup);
     layout->addWidget(m_captureHelpLabel);
     layout->addWidget(m_messageLabel);
@@ -88,8 +108,10 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     connect(buttons->button(QDialogButtonBox::Save), &QPushButton::clicked, this, &SettingsDialog::saveSettings);
     connect(buttons->button(QDialogButtonBox::Close), &QPushButton::clicked, this, &QDialog::close);
     connect(m_enableRefinementCheck, &QCheckBox::toggled, this, &SettingsDialog::syncRefinementState);
+    connect(m_mediaDevices, &QMediaDevices::audioInputsChanged, this, &SettingsDialog::refreshAudioInputDevices);
 
     qApp->installEventFilter(this);
+    populateAudioInputDevices(QString());
     updateHotkeyLabels();
     syncRefinementState();
 }
@@ -104,6 +126,8 @@ void SettingsDialog::setConfig(const AppConfig &config) {
     m_enableRefinementCheck->setChecked(config.enableRefinement);
     m_openAiApiKeyEdit->setText(config.openaiApiKey);
     m_refinementPromptEdit->setPlainText(config.refinementPrompt);
+    m_showDoneScreenCheck->setChecked(config.showDoneScreen);
+    populateAudioInputDevices(config.audioInputDeviceId);
     setCaptureTarget(CaptureTarget::None);
     updateHotkeyLabels();
     syncRefinementState();
@@ -157,6 +181,8 @@ void SettingsDialog::saveSettings() {
     updated.enableRefinement = m_enableRefinementCheck->isChecked();
     updated.openaiApiKey = m_openAiApiKeyEdit->text().trimmed();
     updated.refinementPrompt = m_refinementPromptEdit->toPlainText().trimmed();
+    updated.showDoneScreen = m_showDoneScreenCheck->isChecked();
+    updated.audioInputDeviceId = m_audioInputCombo->currentData().toString().trimmed();
 
     if (updated.refinementPrompt.isEmpty()) {
         updated.refinementPrompt = QStringLiteral("Fix spelling and grammar. Return only the fixed text.");
@@ -195,6 +221,38 @@ void SettingsDialog::syncRefinementState() {
     const bool enabled = m_enableRefinementCheck->isChecked();
     m_openAiApiKeyEdit->setEnabled(enabled);
     m_refinementPromptEdit->setEnabled(enabled);
+}
+
+void SettingsDialog::refreshAudioInputDevices() {
+    populateAudioInputDevices(m_audioInputCombo ? m_audioInputCombo->currentData().toString() : QString());
+}
+
+void SettingsDialog::populateAudioInputDevices(const QString &preferredDeviceId) {
+    if (!m_audioInputCombo) {
+        return;
+    }
+
+    const QSignalBlocker blocker(m_audioInputCombo);
+    m_audioInputCombo->clear();
+    m_audioInputCombo->addItem(tr("System default"), QString());
+
+    const auto devices = QMediaDevices::audioInputs();
+    for (const QAudioDevice &device : devices) {
+        QString label = device.description().trimmed();
+        if (label.isEmpty()) {
+            label = tr("Unnamed input");
+        }
+        m_audioInputCombo->addItem(label, encodeAudioDeviceId(device));
+    }
+
+    int index = 0;
+    if (!preferredDeviceId.trimmed().isEmpty()) {
+        const int matching = m_audioInputCombo->findData(preferredDeviceId.trimmed());
+        if (matching >= 0) {
+            index = matching;
+        }
+    }
+    m_audioInputCombo->setCurrentIndex(index);
 }
 
 void SettingsDialog::setCaptureTarget(CaptureTarget target) {

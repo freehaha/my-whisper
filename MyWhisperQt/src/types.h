@@ -123,9 +123,11 @@ struct AppConfig {
     QString openaiApiKey;
     bool enableRefinement = false;
     QString refinementPrompt;
+    QString audioInputDeviceId;
     HotkeyBinding toggleHotkey = HotkeyBinding::defaultToggle();
     HotkeyBinding abortHotkey = HotkeyBinding::defaultAbort();
     HotkeyBinding historyHotkey = HotkeyBinding::defaultHistory();
+    bool showDoneScreen = false;
 };
 
 enum class AppState {

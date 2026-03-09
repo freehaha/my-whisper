@@ -38,9 +38,11 @@ AppConfig Config::defaultConfig() {
     config.openaiApiKey.clear();
     config.enableRefinement = false;
     config.refinementPrompt = "Fix spelling and grammar. Return only the fixed text.";
+    config.audioInputDeviceId.clear();
     config.toggleHotkey = HotkeyBinding::defaultToggle();
     config.abortHotkey = HotkeyBinding::defaultAbort();
     config.historyHotkey = HotkeyBinding::defaultHistory();
+    config.showDoneScreen = false;
     return config;
 }
 
@@ -70,9 +72,13 @@ AppConfig Config::load() {
     }
     config.enableRefinement = object.value("enableRefinement").toBool(false);
     config.refinementPrompt = object.value("refinementPrompt").toString(config.refinementPrompt);
+    if (object.contains("audioInputDeviceId") && !object.value("audioInputDeviceId").isNull()) {
+        config.audioInputDeviceId = object.value("audioInputDeviceId").toString();
+    }
     config.toggleHotkey = hotkeyFromJson(object.value("toggleHotkey"), HotkeyBinding::defaultToggle());
     config.abortHotkey = hotkeyFromJson(object.value("abortHotkey"), HotkeyBinding::defaultAbort());
     config.historyHotkey = hotkeyFromJson(object.value("historyHotkey"), HotkeyBinding::defaultHistory());
+    config.showDoneScreen = object.value("showDoneScreen").toBool(false);
     return config;
 }
 
@@ -85,9 +91,11 @@ bool Config::save(const AppConfig &config, QString *errorMessage) {
     object["openaiApiKey"] = config.openaiApiKey.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(config.openaiApiKey);
     object["enableRefinement"] = config.enableRefinement;
     object["refinementPrompt"] = config.refinementPrompt;
+    object["audioInputDeviceId"] = config.audioInputDeviceId.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(config.audioInputDeviceId);
     object["toggleHotkey"] = hotkeyToJson(config.toggleHotkey);
     object["abortHotkey"] = hotkeyToJson(config.abortHotkey);
     object["historyHotkey"] = hotkeyToJson(config.historyHotkey);
+    object["showDoneScreen"] = config.showDoneScreen;
 
     QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly)) {

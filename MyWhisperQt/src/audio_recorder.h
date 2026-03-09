@@ -21,6 +21,9 @@ public:
     bool isRecording() const;
     QString audioFilePath() const;
     QVector<float> audioLevels() const;
+    QString preferredInputDeviceId() const;
+
+    void setPreferredInputDeviceId(const QString &deviceId);
 
 public slots:
     void startRecording();
@@ -47,6 +50,7 @@ private:
     QFile *m_outputFile = nullptr;
     QString m_audioFilePath;
     QVector<float> m_audioLevels;
+    QString m_preferredInputDeviceId;
     quint32 m_dataBytes = 0;
     bool m_recording = false;
 };

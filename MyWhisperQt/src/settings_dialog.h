@@ -8,6 +8,8 @@ class QLabel;
 class QLineEdit;
 class QPushButton;
 class QCheckBox;
+class QComboBox;
+class QMediaDevices;
 class QPlainTextEdit;
 
 class SettingsDialog : public QDialog {
@@ -31,6 +33,7 @@ private slots:
     void startCaptureHistory();
     void saveSettings();
     void syncRefinementState();
+    void refreshAudioInputDevices();
 
 private:
     enum class CaptureTarget {
@@ -43,6 +46,7 @@ private:
     void setCaptureTarget(CaptureTarget target);
     void updateHotkeyLabels();
     void showMessage(const QString &message, bool isError);
+    void populateAudioInputDevices(const QString &preferredDeviceId);
     HotkeyBinding *bindingForTarget(CaptureTarget target);
 
     AppConfig m_config;
@@ -52,6 +56,9 @@ private:
     QCheckBox *m_enableRefinementCheck = nullptr;
     QLineEdit *m_openAiApiKeyEdit = nullptr;
     QPlainTextEdit *m_refinementPromptEdit = nullptr;
+    QCheckBox *m_showDoneScreenCheck = nullptr;
+    QComboBox *m_audioInputCombo = nullptr;
+    QMediaDevices *m_mediaDevices = nullptr;
     QLabel *m_toggleValueLabel = nullptr;
     QLabel *m_abortValueLabel = nullptr;
     QLabel *m_historyValueLabel = nullptr;

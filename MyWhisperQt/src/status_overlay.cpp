@@ -42,25 +42,31 @@ void StatusOverlay::paintEvent(QPaintEvent *event) {
     painter.setBrush(QColor(0, 0, 0, 210));
     painter.drawRoundedRect(rect().adjusted(0, 0, -1, -1), 16, 16);
 
-    const QRect iconRect(20, 22, 36, 32);
-    const QRect textRect(72, 16, width() - 90, height() - 32);
+    const QRect contentRect = rect().adjusted(20, 16, -20, -16);
+    const QRect singleLineIconRect(contentRect.left(), contentRect.top(), 36, contentRect.height());
+    const QRect singleLineTextRect(contentRect.left() + 52, contentRect.top(), contentRect.width() - 52, contentRect.height());
+    const QRect errorIconRect(contentRect.left(), contentRect.top(), 36, 24);
+    const QRect errorTitleRect(contentRect.left() + 52, contentRect.top(), contentRect.width() - 52, 24);
+    const QRect errorMessageRect(contentRect.left() + 52, contentRect.top() + 24, contentRect.width() - 52, contentRect.height() - 24);
 
     if (m_state == AppState::Recording) {
         painter.setBrush(QColor(220, 53, 69));
-        painter.drawEllipse(QRectF(24, 26, 16, 16));
+        painter.drawEllipse(QRectF(contentRect.left() + 4, contentRect.center().y() - 8, 16, 16));
 
         painter.setBrush(Qt::white);
-        const int baseX = 72;
+        const int baseX = contentRect.left() + 52;
         for (int i = 0; i < m_audioLevels.size(); ++i) {
             const float level = m_audioLevels[i];
             const int barHeight = qMax(6, static_cast<int>(level * 28));
             const int x = baseX + i * 12;
-            const int y = 38 - barHeight / 2;
+            const int y = contentRect.center().y() - barHeight / 2;
             painter.drawRoundedRect(QRectF(x, y, 8, barHeight), 3, 3);
         }
 
         painter.setPen(Qt::white);
-        painter.drawText(QRect(150, 16, 110, 44), Qt::AlignVCenter | Qt::AlignLeft, tr("Recording"));
+        painter.drawText(QRect(contentRect.left() + 130, contentRect.top(), contentRect.width() - 130, contentRect.height()),
+                         Qt::AlignVCenter | Qt::AlignLeft,
+                         tr("Recording"));
         return;
     }
 
@@ -95,14 +101,14 @@ void StatusOverlay::paintEvent(QPaintEvent *event) {
     symbolFont.setPointSize(22);
     symbolFont.setBold(true);
     painter.setFont(symbolFont);
-    painter.drawText(iconRect, Qt::AlignCenter, symbol);
+    painter.drawText(m_state == AppState::Error ? errorIconRect : singleLineIconRect, Qt::AlignCenter, symbol);
 
     painter.setPen(Qt::white);
     QFont labelFont = painter.font();
     labelFont.setPointSize(13);
     labelFont.setBold(true);
     painter.setFont(labelFont);
-    painter.drawText(textRect.adjusted(0, 0, 0, -20), Qt::AlignLeft | Qt::AlignVCenter, label);
+    painter.drawText(m_state == AppState::Error ? errorTitleRect : singleLineTextRect, Qt::AlignLeft | Qt::AlignVCenter, label);
 
     if (m_state == AppState::Error && !m_errorMessage.isEmpty()) {
         QFont messageFont = painter.font();
@@ -110,8 +116,8 @@ void StatusOverlay::paintEvent(QPaintEvent *event) {
         messageFont.setBold(false);
         painter.setFont(messageFont);
         painter.setPen(QColor(230, 230, 230));
-        painter.drawText(textRect.adjusted(0, 22, 0, 0), Qt::AlignLeft | Qt::TextWordWrap,
-                         QFontMetrics(messageFont).elidedText(m_errorMessage, Qt::ElideRight, textRect.width() * 2));
+        painter.drawText(errorMessageRect, Qt::AlignLeft | Qt::TextWordWrap,
+                         QFontMetrics(messageFont).elidedText(m_errorMessage, Qt::ElideRight, errorMessageRect.width() * 2));
     }
 }
 

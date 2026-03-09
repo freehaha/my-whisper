@@ -21,7 +21,7 @@
 #include <QSystemTrayIcon>
 #include <QTimer>
 
-AppController::AppController(QObject *parent)
+AppController::AppController(std::optional<bool> overrideShowDoneScreen, QObject *parent)
     : QObject(parent)
     , m_config(Config::load())
     , m_recorder(new AudioRecorder(this))
@@ -31,11 +31,14 @@ AppController::AppController(QObject *parent)
     , m_statusOverlay(new StatusOverlay())
     , m_historyDialog(new HistoryDialog(m_historyStore))
     , m_settingsDialog(new SettingsDialog())
-    , m_resetTimer(new QTimer(this)) {
+    , m_resetTimer(new QTimer(this))
+    , m_cliShowDoneScreenOverride(overrideShowDoneScreen)
+    , m_showDoneScreen(overrideShowDoneScreen.value_or(m_config.showDoneScreen)) {
     m_resetTimer->setSingleShot(true);
 
     createTrayIcon();
     m_statusOverlay->hide();
+    m_recorder->setPreferredInputDeviceId(m_config.audioInputDeviceId);
 
     connect(m_recorder, &AudioRecorder::audioLevelsChanged, m_statusOverlay, &StatusOverlay::setAudioLevels);
     connect(m_recorder, &AudioRecorder::errorOccurred, this, &AppController::handleRecorderError);
@@ -150,6 +153,8 @@ void AppController::resetToIdle() {
 
 void AppController::applyConfig(const AppConfig &config) {
     m_config = config;
+    m_recorder->setPreferredInputDeviceId(m_config.audioInputDeviceId);
+    m_showDoneScreen = m_cliShowDoneScreenOverride.value_or(m_config.showDoneScreen);
 }
 
 void AppController::createTrayIcon() {
@@ -229,7 +234,8 @@ void AppController::setState(AppState state, const QString &message) {
 }
 
 void AppController::scheduleIdleReset() {
-    m_resetTimer->start(2000);
+    const int resetDelayMs = (m_state == AppState::Done) ? 900 : 2000;
+    m_resetTimer->start(resetDelayMs);
 }
 
 void AppController::cleanupPendingAudioFile() {
@@ -252,6 +258,12 @@ void AppController::finalizeText(const QString &text) {
     m_historyStore->add(finalText);
     PlatformIntegration::pasteText(finalText);
     cleanupPendingAudioFile();
-    setState(AppState::Done);
-    scheduleIdleReset();
+
+    if (m_showDoneScreen) {
+        setState(AppState::Done);
+        scheduleIdleReset();
+    } else {
+        m_resetTimer->stop();
+        setState(AppState::Idle);
+    }
 }

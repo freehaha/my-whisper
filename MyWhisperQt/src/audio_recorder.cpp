@@ -2,6 +2,7 @@
 
 #include <QAudioDevice>
 #include <QAudioSource>
+#include <QDebug>
 #include <QDir>
 #include <QFile>
 #include <QMediaDevices>
@@ -40,46 +41,61 @@ QByteArray makeWaveHeader(const QAudioFormat &format, quint32 dataBytes) {
     return header;
 }
 
+float visualLevelFromMagnitude(float peak, float rms) {
+    const float blended = std::max(peak * 0.55f, rms);
+    const float clamped = std::clamp(blended, 0.0001f, 1.0f);
+    const float db = 20.0f * std::log10(clamped);
+    const float normalized = std::clamp((db + 45.0f) / 45.0f, 0.0f, 1.0f);
+    const float boosted = std::pow(normalized, 0.6f);
+    return 0.05f + boosted * 0.95f;
+}
+
 float peakLevelForBuffer(const QByteArray &data, const QAudioFormat &format) {
+    auto fromNormalizedSamples = [](auto sampleAt, int count) -> float {
+        if (count <= 0) {
+            return 0.05f;
+        }
+
+        float peak = 0.0f;
+        double sumSquares = 0.0;
+        for (int i = 0; i < count; ++i) {
+            const float normalized = std::clamp(std::abs(sampleAt(i)), 0.0f, 1.0f);
+            peak = std::max(peak, normalized);
+            sumSquares += static_cast<double>(normalized) * static_cast<double>(normalized);
+        }
+
+        const float rms = static_cast<float>(std::sqrt(sumSquares / static_cast<double>(count)));
+        return visualLevelFromMagnitude(peak, rms);
+    };
+
     switch (format.sampleFormat()) {
     case QAudioFormat::UInt8: {
         const auto *samples = reinterpret_cast<const quint8 *>(data.constData());
         const int count = data.size();
-        float peak = 0.0f;
-        for (int i = 0; i < count; ++i) {
-            const float normalized = std::abs((static_cast<int>(samples[i]) - 128) / 128.0f);
-            peak = std::max(peak, normalized);
-        }
-        return std::max(0.05f, peak);
+        return fromNormalizedSamples([samples](int i) {
+            return (static_cast<int>(samples[i]) - 128) / 128.0f;
+        }, count);
     }
     case QAudioFormat::Int16: {
         const auto *samples = reinterpret_cast<const qint16 *>(data.constData());
         const int count = data.size() / static_cast<int>(sizeof(qint16));
-        float peak = 0.0f;
-        for (int i = 0; i < count; ++i) {
-            const float normalized = std::abs(samples[i] / 32767.0f);
-            peak = std::max(peak, normalized);
-        }
-        return std::max(0.05f, peak);
+        return fromNormalizedSamples([samples](int i) {
+            return samples[i] / 32767.0f;
+        }, count);
     }
     case QAudioFormat::Int32: {
         const auto *samples = reinterpret_cast<const qint32 *>(data.constData());
         const int count = data.size() / static_cast<int>(sizeof(qint32));
-        float peak = 0.0f;
-        for (int i = 0; i < count; ++i) {
-            const float normalized = std::abs(samples[i] / 2147483647.0f);
-            peak = std::max(peak, normalized);
-        }
-        return std::max(0.05f, peak);
+        return fromNormalizedSamples([samples](int i) {
+            return samples[i] / 2147483647.0f;
+        }, count);
     }
     case QAudioFormat::Float: {
         const auto *samples = reinterpret_cast<const float *>(data.constData());
         const int count = data.size() / static_cast<int>(sizeof(float));
-        float peak = 0.0f;
-        for (int i = 0; i < count; ++i) {
-            peak = std::max(peak, std::abs(samples[i]));
-        }
-        return std::max(0.05f, std::min(1.0f, peak));
+        return fromNormalizedSamples([samples](int i) {
+            return samples[i];
+        }, count);
     }
     case QAudioFormat::Unknown:
         break;
@@ -110,6 +126,14 @@ QVector<float> AudioRecorder::audioLevels() const {
     return m_audioLevels;
 }
 
+QString AudioRecorder::preferredInputDeviceId() const {
+    return m_preferredInputDeviceId;
+}
+
+void AudioRecorder::setPreferredInputDeviceId(const QString &deviceId) {
+    m_preferredInputDeviceId = deviceId.trimmed();
+}
+
 void AudioRecorder::startRecording() {
     if (m_recording) {
         return;
@@ -119,12 +143,35 @@ void AudioRecorder::startRecording() {
     cleanupAudioObjects();
     m_dataBytes = 0;
 
-    m_format = QMediaDevices::defaultAudioInput().preferredFormat();
+    QAudioDevice device;
+    if (!m_preferredInputDeviceId.isEmpty()) {
+        const QByteArray requestedId = QByteArray::fromBase64(m_preferredInputDeviceId.toLatin1());
+        const auto inputs = QMediaDevices::audioInputs();
+        for (const QAudioDevice &candidate : inputs) {
+            if (candidate.id() == requestedId) {
+                device = candidate;
+                break;
+            }
+        }
+
+        if (device.isNull()) {
+            qWarning() << "Configured audio input device not found, falling back to default.";
+        }
+    }
+
+    if (device.isNull()) {
+        device = QMediaDevices::defaultAudioInput();
+    }
+    if (device.isNull()) {
+        emit errorOccurred(tr("No audio input device found."));
+        return;
+    }
+
+    m_format = device.preferredFormat();
     m_format.setSampleRate(16000);
     m_format.setChannelCount(1);
     m_format.setSampleFormat(QAudioFormat::Int16);
 
-    const QAudioDevice device = QMediaDevices::defaultAudioInput();
     if (!device.isFormatSupported(m_format)) {
         m_format = device.preferredFormat();
     }

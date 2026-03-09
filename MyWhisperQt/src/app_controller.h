@@ -3,6 +3,7 @@
 #include "types.h"
 
 #include <QObject>
+#include <optional>
 
 class AudioRecorder;
 class Transcriber;
@@ -19,7 +20,7 @@ class AppController : public QObject {
     Q_OBJECT
 
 public:
-    explicit AppController(QObject *parent = nullptr);
+    explicit AppController(std::optional<bool> overrideShowDoneScreen = std::nullopt, QObject *parent = nullptr);
     ~AppController() override;
 
 public slots:
@@ -60,4 +61,6 @@ private:
     AppState m_state = AppState::Idle;
     QString m_stateMessage;
     QString m_pendingAudioFile;
+    std::optional<bool> m_cliShowDoneScreenOverride;
+    bool m_showDoneScreen = false;
 };

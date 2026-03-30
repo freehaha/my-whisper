@@ -1,0 +1,13 @@
+CompileFlags:
+  Add:
+    - -DQT_NO_KEYWORDS
+  Remove:
+    - -mno-direct-extern-access
+
+Diagnostics:
+  UnusedIncludes: None
+  Suppress:
+    - pp_file_not_found
+
+Index:
+  Background: true

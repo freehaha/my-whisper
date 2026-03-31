@@ -28,8 +28,8 @@ void LLMRefiner::refine(const QString &text, const AppConfig &config) {
     request.setRawHeader("Authorization", QByteArray("Bearer ") + config.openaiApiKey.toUtf8());
 
     QJsonObject body;
-    body["model"] = QStringLiteral("gpt-4o-mini");
-    body["temperature"] = 0.3;
+    body["model"] = QStringLiteral("gpt-5.4-nano");
+    body["temperature"] = 0.7;
 
     QJsonArray messages;
     QJsonObject systemMessage;

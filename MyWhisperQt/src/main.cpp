@@ -7,8 +7,7 @@
 
 int main(int argc, char *argv[]) {
     QLoggingCategory::setFilterRules(
-        "qt.multimedia.ffmpeg.info=false\n"
-        "qt.multimedia.ffmpeg.warning=false\n"
+        "qt.multimedia=false\n"
         "qt.core.qfuture.continuations.warning=false"
     );
 

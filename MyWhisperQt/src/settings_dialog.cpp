@@ -20,6 +20,7 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSignalBlocker>
+#include <QTimer>
 #include <QVBoxLayout>
 
 namespace {
@@ -54,6 +55,10 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     apiLayout->addRow(tr("Refinement prompt"), m_refinementPromptEdit);
 
     m_mediaDevices = new QMediaDevices(this);
+    m_deviceRefreshTimer = new QTimer(this);
+    m_deviceRefreshTimer->setSingleShot(true);
+    m_deviceRefreshTimer->setInterval(500);
+    connect(m_deviceRefreshTimer, &QTimer::timeout, this, &SettingsDialog::refreshAudioInputDevices);
 
     auto *behaviorGroup = new QGroupBox(tr("Behavior"), this);
     auto *behaviorLayout = new QFormLayout(behaviorGroup);
@@ -108,7 +113,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     connect(buttons->button(QDialogButtonBox::Save), &QPushButton::clicked, this, &SettingsDialog::saveSettings);
     connect(buttons->button(QDialogButtonBox::Close), &QPushButton::clicked, this, &QDialog::close);
     connect(m_enableRefinementCheck, &QCheckBox::toggled, this, &SettingsDialog::syncRefinementState);
-    connect(m_mediaDevices, &QMediaDevices::audioInputsChanged, this, &SettingsDialog::refreshAudioInputDevices);
+    connect(m_mediaDevices, &QMediaDevices::audioInputsChanged, m_deviceRefreshTimer, QOverload<>::of(&QTimer::start));
 
     qApp->installEventFilter(this);
     populateAudioInputDevices(QString());

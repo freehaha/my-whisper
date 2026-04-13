@@ -11,6 +11,7 @@ class QCheckBox;
 class QComboBox;
 class QMediaDevices;
 class QPlainTextEdit;
+class QTimer;
 
 class SettingsDialog : public QDialog {
     Q_OBJECT
@@ -59,6 +60,7 @@ private:
     QCheckBox *m_showDoneScreenCheck = nullptr;
     QComboBox *m_audioInputCombo = nullptr;
     QMediaDevices *m_mediaDevices = nullptr;
+    QTimer *m_deviceRefreshTimer = nullptr;
     QLabel *m_toggleValueLabel = nullptr;
     QLabel *m_abortValueLabel = nullptr;
     QLabel *m_historyValueLabel = nullptr;

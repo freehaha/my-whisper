@@ -38,6 +38,7 @@ AppController::AppController(std::optional<bool> overrideShowDoneScreen, QObject
 
     createTrayIcon();
     m_statusOverlay->hide();
+    PlatformIntegration::initializeSounds();
     m_recorder->setPreferredInputDeviceId(m_config.audioInputDeviceId);
 
     connect(m_recorder, &AudioRecorder::audioLevelsChanged, m_statusOverlay, &StatusOverlay::setAudioLevels);

@@ -1,4 +1,5 @@
 CompileFlags:
+  CompilationDatabase: build
   Add:
     - -DQT_NO_KEYWORDS
   Remove:

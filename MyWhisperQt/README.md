@@ -73,6 +73,33 @@ Example Debian/Ubuntu packages:
 sudo apt install qt6-base-dev qt6-multimedia-dev libx11-dev libxtst-dev pkg-config
 ```
 
+## Sound probe
+
+Use bundled test app to isolate Qt audio path:
+
+```bash
+./MyWhisperQt/build/SoundProbe --list-devices
+./MyWhisperQt/build/SoundProbe --engine platform --sound start
+./MyWhisperQt/build/SoundProbe --engine platform --sound success
+./MyWhisperQt/build/SoundProbe --engine mediaplayer
+./MyWhisperQt/build/SoundProbe --engine tone
+```
+
+Useful options:
+
+```bash
+./MyWhisperQt/build/SoundProbe --engine tone --duration-ms 15000
+./MyWhisperQt/build/SoundProbe --engine mediaplayer --device Bose
+./MyWhisperQt/build/SoundProbe --engine soundeffect
+```
+
+While probe runs, verify PipeWire/Pulse stream creation:
+
+```bash
+wpctl status
+pactl list short sink-inputs
+```
+
 ## Notes
 
 - If you run this under Wayland, use `QT_QPA_PLATFORM=xcb` from an X11 session/XWayland-capable environment.

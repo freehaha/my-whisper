@@ -19,6 +19,9 @@ void playNamedSound(NSString *name) {
 }
 
 namespace PlatformIntegration {
+void initializeSounds() {
+}
+
 bool ensureAccessibilityPermissionPrompted() {
     NSDictionary *options = @{(__bridge NSString *)kAXTrustedCheckOptionPrompt: @YES};
     return AXIsProcessTrustedWithOptions((__bridge CFDictionaryRef)options);

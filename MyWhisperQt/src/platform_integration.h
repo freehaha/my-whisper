@@ -3,6 +3,7 @@
 #include <QString>
 
 namespace PlatformIntegration {
+void initializeSounds();
 bool ensureAccessibilityPermissionPrompted();
 void copyToClipboard(const QString &text);
 void pasteText(const QString &text);

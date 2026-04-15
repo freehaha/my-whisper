@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.21)
 project(MyWhisperQt VERSION 1.0 LANGUAGES CXX)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 if(APPLE)
     enable_language(OBJCXX)
 endif()
@@ -96,7 +98,25 @@ if(APPLE)
     )
 endif()
 
-install(TARGETS MyWhisperQt
+add_executable(SoundProbe
+    tests/sound_probe.cpp
+    src/platform_integration.cpp
+    src/platform_integration.h
+    resources/resources.qrc
+)
+
+target_include_directories(SoundProbe PRIVATE
+    src
+)
+
+target_link_libraries(SoundProbe PRIVATE
+    Qt6::Core
+    Qt6::Gui
+    Qt6::Widgets
+    Qt6::Multimedia
+)
+
+install(TARGETS MyWhisperQt SoundProbe
     BUNDLE DESTINATION .
     RUNTIME DESTINATION bin
 )

@@ -16,6 +16,12 @@ let package = Package(
                 "WhisperFramework"
             ],
             path: ".",
+            exclude: [
+                ".pi",
+                "Packaging",
+                "Scripts",
+                "dist"
+            ],
             sources: [
                 "Sources"
             ],

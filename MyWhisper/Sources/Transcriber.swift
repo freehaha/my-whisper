@@ -27,9 +27,12 @@ final class Transcriber {
             return candidateURL
         }
 
+        let executableDirectory = Bundle.main.executableURL?.deletingLastPathComponent()
         let resourceRoots = [
             Bundle.main.resourceURL,
-            Bundle.module.resourceURL,
+            executableDirectory?.deletingLastPathComponent().appendingPathComponent("Resources"),
+            executableDirectory?.appendingPathComponent("MyWhisper_MyWhisper.bundle"),
+            executableDirectory?.deletingLastPathComponent().appendingPathComponent("Resources/MyWhisper_MyWhisper.bundle"),
             URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("Resources")
         ].compactMap { $0 }
 

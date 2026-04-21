@@ -23,9 +23,15 @@ struct HotkeyBinding: Codable, Equatable {
 
 struct Config: Codable {
     static let defaultRefinementPrompt = "Fix spelling and grammar. Return only the fixed text."
+    static let defaultWhisperLanguage = "en"
 
+    // Legacy field kept for backward compatibility with existing config files.
     var deepgramApiKey: String
+    // Reused as whisper.cpp initial prompt vocabulary hints.
     var deepgramKeywords: [String]
+    var whisperModelPath: String?
+    var whisperLanguage: String
+    var whisperUseGPU: Bool
     var openaiApiKey: String?
     var enableRefinement: Bool
     var refinementPrompt: String?
@@ -34,17 +40,23 @@ struct Config: Codable {
     var historyHotkey: HotkeyBinding
 
     init(
-        deepgramApiKey: String,
+        deepgramApiKey: String = "",
         deepgramKeywords: [String] = [],
-        openaiApiKey: String?,
-        enableRefinement: Bool,
-        refinementPrompt: String?,
+        whisperModelPath: String? = nil,
+        whisperLanguage: String = Self.defaultWhisperLanguage,
+        whisperUseGPU: Bool = true,
+        openaiApiKey: String? = nil,
+        enableRefinement: Bool = false,
+        refinementPrompt: String? = Self.defaultRefinementPrompt,
         toggleHotkey: HotkeyBinding = .defaultToggle,
         abortHotkey: HotkeyBinding = .defaultAbort,
         historyHotkey: HotkeyBinding = .defaultHistory
     ) {
         self.deepgramApiKey = deepgramApiKey
         self.deepgramKeywords = Self.normalizeKeywords(deepgramKeywords)
+        self.whisperModelPath = Self.normalizeOptionalPath(whisperModelPath)
+        self.whisperLanguage = Self.normalizeLanguage(whisperLanguage)
+        self.whisperUseGPU = whisperUseGPU
         self.openaiApiKey = openaiApiKey
         self.enableRefinement = enableRefinement
         self.refinementPrompt = refinementPrompt
@@ -56,6 +68,9 @@ struct Config: Codable {
     enum CodingKeys: String, CodingKey {
         case deepgramApiKey
         case deepgramKeywords
+        case whisperModelPath
+        case whisperLanguage
+        case whisperUseGPU
         case openaiApiKey
         case enableRefinement
         case refinementPrompt
@@ -66,7 +81,7 @@ struct Config: Codable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        deepgramApiKey = try container.decode(String.self, forKey: .deepgramApiKey)
+        deepgramApiKey = try container.decodeIfPresent(String.self, forKey: .deepgramApiKey) ?? ""
 
         if let keywords = try? container.decode([String].self, forKey: .deepgramKeywords) {
             deepgramKeywords = Self.normalizeKeywords(keywords)
@@ -76,6 +91,9 @@ struct Config: Codable {
             deepgramKeywords = []
         }
 
+        whisperModelPath = Self.normalizeOptionalPath(try container.decodeIfPresent(String.self, forKey: .whisperModelPath))
+        whisperLanguage = Self.normalizeLanguage(try container.decodeIfPresent(String.self, forKey: .whisperLanguage) ?? Self.defaultWhisperLanguage)
+        whisperUseGPU = try container.decodeIfPresent(Bool.self, forKey: .whisperUseGPU) ?? true
         openaiApiKey = try container.decodeIfPresent(String.self, forKey: .openaiApiKey)
         enableRefinement = try container.decodeIfPresent(Bool.self, forKey: .enableRefinement) ?? false
         refinementPrompt = try container.decodeIfPresent(String.self, forKey: .refinementPrompt)
@@ -102,9 +120,30 @@ struct Config: Codable {
         normalizeKeywords(text.components(separatedBy: .newlines))
     }
 
-    var hasValidDeepgramKey: Bool {
-        let key = deepgramApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !key.isEmpty && key != "YOUR_DEEPGRAM_API_KEY"
+    static func normalizeOptionalPath(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else {
+            return nil
+        }
+
+        return trimmed
+    }
+
+    static func normalizeLanguage(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? defaultWhisperLanguage : trimmed
+    }
+
+    var normalizedWhisperModelPath: String? {
+        Self.normalizeOptionalPath(whisperModelPath)
+    }
+
+    var normalizedWhisperLanguage: String {
+        Self.normalizeLanguage(whisperLanguage)
+    }
+
+    var whisperLanguageOrNil: String? {
+        let normalized = normalizedWhisperLanguage
+        return normalized.caseInsensitiveCompare("auto") == .orderedSame ? nil : normalized
     }
 
     var hasUsableRefiner: Bool {
@@ -125,8 +164,11 @@ struct Config: Codable {
         }
 
         let defaultConfig = Config(
-            deepgramApiKey: "YOUR_DEEPGRAM_API_KEY",
+            deepgramApiKey: "",
             deepgramKeywords: [],
+            whisperModelPath: nil,
+            whisperLanguage: Self.defaultWhisperLanguage,
+            whisperUseGPU: true,
             openaiApiKey: nil,
             enableRefinement: false,
             refinementPrompt: Self.defaultRefinementPrompt,

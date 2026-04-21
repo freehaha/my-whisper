@@ -12,12 +12,16 @@ class AudioRecorder: NSObject, ObservableObject {
     
     func startRecording() {
         let tempDir = FileManager.default.temporaryDirectory
-        audioFileURL = tempDir.appendingPathComponent(UUID().uuidString + ".m4a")
-        
-        let settings = [
-            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-            AVSampleRateKey: 16000,
+        audioFileURL = tempDir.appendingPathComponent(UUID().uuidString + ".wav")
+
+        let settings: [String: Any] = [
+            AVFormatIDKey: Int(kAudioFormatLinearPCM),
+            AVSampleRateKey: 16_000,
             AVNumberOfChannelsKey: 1,
+            AVLinearPCMBitDepthKey: 16,
+            AVLinearPCMIsBigEndianKey: false,
+            AVLinearPCMIsFloatKey: false,
+            AVLinearPCMIsNonInterleaved: false,
             AVEncoderAudioQualityKey: AVAudioQuality.high.rawValue
         ]
         

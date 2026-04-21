@@ -7,7 +7,7 @@ class SettingsWindowController: NSWindowController {
 
     init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 680),
+            contentRect: NSRect(x: 0, y: 0, width: 560, height: 700),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -41,8 +41,9 @@ private enum CaptureTarget {
 }
 
 struct SettingsView: View {
-    @State private var deepgramApiKey: String
-    @State private var deepgramKeywordsText: String
+    @State private var whisperModelPath: String
+    @State private var whisperLanguage: String
+    @State private var vocabularyHintsText: String
     @State private var enableRefinement: Bool
     @State private var openaiApiKey: String
     @State private var refinementPrompt: String
@@ -55,8 +56,9 @@ struct SettingsView: View {
     @State private var isError = false
 
     init(initialConfig: Config) {
-        _deepgramApiKey = State(initialValue: initialConfig.deepgramApiKey)
-        _deepgramKeywordsText = State(initialValue: initialConfig.deepgramKeywords.joined(separator: "\n"))
+        _whisperModelPath = State(initialValue: initialConfig.normalizedWhisperModelPath ?? "")
+        _whisperLanguage = State(initialValue: initialConfig.normalizedWhisperLanguage)
+        _vocabularyHintsText = State(initialValue: initialConfig.deepgramKeywords.joined(separator: "\n"))
         _enableRefinement = State(initialValue: initialConfig.enableRefinement)
         _openaiApiKey = State(initialValue: initialConfig.openaiApiKey ?? "")
         _refinementPrompt = State(initialValue: initialConfig.refinementPrompt ?? Config.defaultRefinementPrompt)
@@ -68,24 +70,42 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                GroupBox("API Settings") {
+                GroupBox("Local Transcription") {
                     VStack(alignment: .leading, spacing: 12) {
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Deepgram API key")
+                            Text("Whisper model path")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
-                            SecureField("YOUR_DEEPGRAM_API_KEY", text: $deepgramApiKey)
+                            TextField("Auto-detect bundled ggml-*.bin model", text: $whisperModelPath)
+                                .textFieldStyle(.roundedBorder)
+                            Text("Leave empty to auto-detect a bundled model in Resources/Whisper.")
+                                .font(.footnote)
+                                .foregroundColor(.secondary)
                         }
 
                         VStack(alignment: .leading, spacing: 6) {
-                            Text("Deepgram keyterms")
+                            Text("Language")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                            TextField("en or auto", text: $whisperLanguage)
+                                .textFieldStyle(.roundedBorder)
+                            Text("Use ISO code like en, de, fr. Use auto for language detection.")
+                                .font(.footnote)
+                                .foregroundColor(.secondary)
+                        }
+
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Vocabulary hints")
                                 .font(.subheadline)
                                 .foregroundColor(.secondary)
                             MultilineInput(
-                                text: $deepgramKeywordsText,
-                                placeholder: "One keyterm/phrase per line. Example:\nAcmeCloud\nMyWhisper\nGPU"
+                                text: $vocabularyHintsText,
+                                placeholder: "Optional prompt bias. One phrase per line. Example:\nAcmeCloud\nMyWhisper\nGPU"
                             )
                             .frame(height: 92)
+                            Text("Passed to whisper.cpp as initial prompt to bias recognition toward product names and jargon.")
+                                .font(.footnote)
+                                .foregroundColor(.secondary)
                         }
                     }
                     .padding(.top, 6)
@@ -155,7 +175,7 @@ struct SettingsView: View {
             }
             .padding(18)
         }
-        .frame(width: 560, height: 680)
+        .frame(width: 560, height: 700)
         .onAppear {
             installKeyboardMonitor()
         }
@@ -251,9 +271,11 @@ struct SettingsView: View {
 
         do {
             var config = Config.load()
-            config.deepgramApiKey = deepgramApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
-            config.deepgramKeywords = Config.normalizeKeywords(fromMultilineText: deepgramKeywordsText)
+            config.whisperModelPath = Config.normalizeOptionalPath(whisperModelPath)
+            config.whisperLanguage = Config.normalizeLanguage(whisperLanguage)
+            config.deepgramKeywords = Config.normalizeKeywords(fromMultilineText: vocabularyHintsText)
             config.enableRefinement = enableRefinement
+
             let trimmedOpenAIKey = openaiApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
             config.openaiApiKey = trimmedOpenAIKey.isEmpty ? nil : trimmedOpenAIKey
 

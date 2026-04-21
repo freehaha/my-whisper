@@ -7,9 +7,12 @@
 #include <QMetaObject>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QLoggingCategory>
 #include <QNetworkRequest>
 #include <QUrl>
 #include <QDebug>
+
+Q_LOGGING_CATEGORY(lcLlmRefiner, "mywhisper.llm_refiner")
 
 LLMRefiner::LLMRefiner(QObject *parent)
     : QObject(parent)
@@ -66,13 +69,13 @@ void LLMRefiner::refine(const QString &text, const AppConfig &config) {
 
     const QByteArray requestBody = QJsonDocument(body).toJson(QJsonDocument::Compact);
 #ifndef QT_NO_DEBUG_OUTPUT
-    qDebug().noquote() << "LLM Refiner request:" << requestBody;
+    qCDebug(lcLlmRefiner).noquote() << "LLM Refiner request:" << requestBody;
 #endif
     QNetworkReply *reply = m_networkManager->post(request, requestBody);
     connect(reply, &QNetworkReply::finished, this, [this, reply, text]() {
         const QByteArray responseBody = reply->readAll();
 #ifdef QT_DEBUG
-        qDebug().noquote() << "LLM Refiner response:" << responseBody;
+        qCDebug(lcLlmRefiner).noquote() << "LLM Refiner response:" << responseBody;
 #endif
         const QVariant statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
 

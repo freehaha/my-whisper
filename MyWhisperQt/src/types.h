@@ -2,6 +2,7 @@
 
 #include <QDateTime>
 #include <QString>
+#include <QStringList>
 #include <QVector>
 #include <QtGlobal>
 
@@ -120,6 +121,7 @@ struct HotkeyBinding {
 
 struct AppConfig {
     QString deepgramApiKey;
+    QStringList deepgramKeywords;
     QString openaiApiKey;
     bool enableRefinement = false;
     QString refinementPrompt;

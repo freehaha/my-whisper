@@ -6,8 +6,39 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSaveFile>
+#include <QJsonArray>
 
 namespace {
+QJsonArray stringListToJson(const QStringList &values) {
+    QJsonArray array;
+    for (const QString &value : values) {
+        const QString trimmed = value.trimmed();
+        if (!trimmed.isEmpty()) {
+            array.append(trimmed);
+        }
+    }
+    return array;
+}
+
+QStringList stringListFromJson(const QJsonValue &value) {
+    QStringList values;
+    if (value.isArray()) {
+        const QJsonArray array = value.toArray();
+        for (const QJsonValue &entry : array) {
+            const QString trimmed = entry.toString().trimmed();
+            if (!trimmed.isEmpty()) {
+                values.append(trimmed);
+            }
+        }
+    } else if (value.isString()) {
+        const QString trimmed = value.toString().trimmed();
+        if (!trimmed.isEmpty()) {
+            values.append(trimmed);
+        }
+    }
+    return values;
+}
+
 QJsonObject hotkeyToJson(const HotkeyBinding &binding) {
     QJsonObject object;
     object["keyCode"] = static_cast<int>(binding.keyCode);
@@ -35,6 +66,7 @@ QString Config::configPath() {
 AppConfig Config::defaultConfig() {
     AppConfig config;
     config.deepgramApiKey = "YOUR_DEEPGRAM_API_KEY";
+    config.deepgramKeywords.clear();
     config.openaiApiKey.clear();
     config.enableRefinement = false;
     config.refinementPrompt = "Fix spelling and grammar. Return only the fixed text.";
@@ -67,6 +99,7 @@ AppConfig Config::load() {
     const QJsonObject object = document.object();
     AppConfig config = defaultConfig();
     config.deepgramApiKey = object.value("deepgramApiKey").toString(config.deepgramApiKey);
+    config.deepgramKeywords = stringListFromJson(object.value("deepgramKeywords"));
     if (object.contains("openaiApiKey") && !object.value("openaiApiKey").isNull()) {
         config.openaiApiKey = object.value("openaiApiKey").toString();
     }
@@ -88,6 +121,7 @@ bool Config::save(const AppConfig &config, QString *errorMessage) {
 
     QJsonObject object;
     object["deepgramApiKey"] = config.deepgramApiKey;
+    object["deepgramKeywords"] = stringListToJson(config.deepgramKeywords);
     object["openaiApiKey"] = config.openaiApiKey.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(config.openaiApiKey);
     object["enableRefinement"] = config.enableRefinement;
     object["refinementPrompt"] = config.refinementPrompt;

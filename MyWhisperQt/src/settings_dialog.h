@@ -54,6 +54,7 @@ private:
     CaptureTarget m_captureTarget = CaptureTarget::None;
 
     QLineEdit *m_deepgramApiKeyEdit = nullptr;
+    QPlainTextEdit *m_deepgramKeywordsEdit = nullptr;
     QCheckBox *m_enableRefinementCheck = nullptr;
     QLineEdit *m_openAiApiKeyEdit = nullptr;
     QPlainTextEdit *m_refinementPromptEdit = nullptr;

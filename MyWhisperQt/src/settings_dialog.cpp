@@ -32,7 +32,7 @@ QString encodeAudioDeviceId(const QAudioDevice &device) {
 SettingsDialog::SettingsDialog(QWidget *parent)
     : QDialog(parent) {
     setWindowTitle(tr("MyWhisperQt Settings"));
-    resize(560, 470);
+    resize(560, 580);
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(18, 18, 18, 18);
@@ -42,6 +42,9 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     auto *apiLayout = new QFormLayout(apiGroup);
     m_deepgramApiKeyEdit = new QLineEdit(apiGroup);
     m_deepgramApiKeyEdit->setEchoMode(QLineEdit::PasswordEchoOnEdit);
+    m_deepgramKeywordsEdit = new QPlainTextEdit(apiGroup);
+    m_deepgramKeywordsEdit->setPlaceholderText(tr("One keyterm/phrase per line. Example:\nAcmeCloud\nMyWhisper\nGPU"));
+    m_deepgramKeywordsEdit->setFixedHeight(90);
     m_openAiApiKeyEdit = new QLineEdit(apiGroup);
     m_openAiApiKeyEdit->setEchoMode(QLineEdit::PasswordEchoOnEdit);
     m_enableRefinementCheck = new QCheckBox(tr("Enable OpenAI refinement"), apiGroup);
@@ -50,6 +53,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     m_refinementPromptEdit->setFixedHeight(90);
 
     apiLayout->addRow(tr("Deepgram API key"), m_deepgramApiKeyEdit);
+    apiLayout->addRow(tr("Deepgram keyterms"), m_deepgramKeywordsEdit);
     apiLayout->addRow(QString(), m_enableRefinementCheck);
     apiLayout->addRow(tr("OpenAI API key"), m_openAiApiKeyEdit);
     apiLayout->addRow(tr("Refinement prompt"), m_refinementPromptEdit);
@@ -128,6 +132,7 @@ SettingsDialog::~SettingsDialog() {
 void SettingsDialog::setConfig(const AppConfig &config) {
     m_config = config;
     m_deepgramApiKeyEdit->setText(config.deepgramApiKey);
+    m_deepgramKeywordsEdit->setPlainText(config.deepgramKeywords.join('\n'));
     m_enableRefinementCheck->setChecked(config.enableRefinement);
     m_openAiApiKeyEdit->setText(config.openaiApiKey);
     m_refinementPromptEdit->setPlainText(config.refinementPrompt);
@@ -183,6 +188,13 @@ void SettingsDialog::startCaptureHistory() {
 void SettingsDialog::saveSettings() {
     AppConfig updated = m_config;
     updated.deepgramApiKey = m_deepgramApiKeyEdit->text().trimmed();
+    updated.deepgramKeywords.clear();
+    for (const QString &line : m_deepgramKeywordsEdit->toPlainText().split('\n')) {
+        const QString trimmed = line.trimmed();
+        if (!trimmed.isEmpty()) {
+            updated.deepgramKeywords.append(trimmed);
+        }
+    }
     updated.enableRefinement = m_enableRefinementCheck->isChecked();
     updated.openaiApiKey = m_openAiApiKeyEdit->text().trimmed();
     updated.refinementPrompt = m_refinementPromptEdit->toPlainText().trimmed();

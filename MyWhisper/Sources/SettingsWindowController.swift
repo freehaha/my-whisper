@@ -7,7 +7,7 @@ class SettingsWindowController: NSWindowController {
 
     init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 700),
+            contentRect: NSRect(x: 0, y: 0, width: 560, height: 760),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -41,8 +41,11 @@ private enum CaptureTarget {
 }
 
 struct SettingsView: View {
+    @State private var transcriptionBackend: TranscriptionBackend
+    @State private var deepgramApiKey: String
     @State private var whisperModelPath: String
     @State private var whisperLanguage: String
+    @State private var whisperUseGPU: Bool
     @State private var vocabularyHintsText: String
     @State private var enableRefinement: Bool
     @State private var openaiApiKey: String
@@ -56,8 +59,11 @@ struct SettingsView: View {
     @State private var isError = false
 
     init(initialConfig: Config) {
+        _transcriptionBackend = State(initialValue: initialConfig.transcriptionBackend)
+        _deepgramApiKey = State(initialValue: initialConfig.deepgramApiKey)
         _whisperModelPath = State(initialValue: initialConfig.normalizedWhisperModelPath ?? "")
         _whisperLanguage = State(initialValue: initialConfig.normalizedWhisperLanguage)
+        _whisperUseGPU = State(initialValue: initialConfig.whisperUseGPU)
         _vocabularyHintsText = State(initialValue: initialConfig.deepgramKeywords.joined(separator: "\n"))
         _enableRefinement = State(initialValue: initialConfig.enableRefinement)
         _openaiApiKey = State(initialValue: initialConfig.openaiApiKey ?? "")
@@ -70,45 +76,75 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                GroupBox("Local Transcription") {
+                GroupBox("Transcription Backend") {
                     VStack(alignment: .leading, spacing: 12) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Whisper model path")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            TextField("Auto-detect bundled ggml-*.bin model", text: $whisperModelPath)
-                                .textFieldStyle(.roundedBorder)
-                            Text("Leave empty to auto-detect a bundled model in Resources/Whisper.")
-                                .font(.footnote)
-                                .foregroundColor(.secondary)
+                        Picker("Backend", selection: $transcriptionBackend) {
+                            ForEach(TranscriptionBackend.allCases) { backend in
+                                Text(backend.displayName).tag(backend)
+                            }
                         }
+                        .pickerStyle(.segmented)
 
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Language")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            TextField("en or auto", text: $whisperLanguage)
-                                .textFieldStyle(.roundedBorder)
-                            Text("Use ISO code like en, de, fr. Use auto for language detection.")
-                                .font(.footnote)
-                                .foregroundColor(.secondary)
-                        }
-
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Vocabulary hints")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                            MultilineInput(
-                                text: $vocabularyHintsText,
-                                placeholder: "Optional prompt bias. One phrase per line. Example:\nAcmeCloud\nMyWhisper\nGPU"
-                            )
-                            .frame(height: 92)
-                            Text("Passed to whisper.cpp as initial prompt to bias recognition toward product names and jargon.")
-                                .font(.footnote)
-                                .foregroundColor(.secondary)
-                        }
+                        Text(transcriptionBackend == .deepgram ? "Cloud transcription via Deepgram API." : "On-device transcription via whisper.cpp XCFramework.")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
                     }
                     .padding(.top, 6)
+                }
+
+                if transcriptionBackend == .deepgram {
+                    GroupBox("Deepgram") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Deepgram API key")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                SecureField("YOUR_DEEPGRAM_API_KEY", text: $deepgramApiKey)
+                            }
+
+                            vocabularyHintsSection(
+                                title: "Deepgram keyterms",
+                                placeholder: "One keyterm/phrase per line. Example:\nAcmeCloud\nMyWhisper\nGPU",
+                                footnote: "Sent as Deepgram keyterms to bias recognition toward product names and jargon."
+                            )
+                        }
+                        .padding(.top, 6)
+                    }
+                } else {
+                    GroupBox("Local Whisper") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Whisper model path")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                TextField("Auto-detect bundled ggml-*.bin model", text: $whisperModelPath)
+                                    .textFieldStyle(.roundedBorder)
+                                Text("Leave empty to auto-detect a bundled model in Resources/Whisper.")
+                                    .font(.footnote)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Language")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                TextField("en or auto", text: $whisperLanguage)
+                                    .textFieldStyle(.roundedBorder)
+                                Text("Use ISO code like en, de, fr. Use auto for language detection.")
+                                    .font(.footnote)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Toggle("Use GPU when available", isOn: $whisperUseGPU)
+
+                            vocabularyHintsSection(
+                                title: "Vocabulary hints",
+                                placeholder: "Optional prompt bias. One phrase per line. Example:\nAcmeCloud\nMyWhisper\nGPU",
+                                footnote: "Passed to whisper.cpp as initial_prompt to bias recognition toward product names and jargon."
+                            )
+                        }
+                        .padding(.top, 6)
+                    }
                 }
 
                 GroupBox("Text Refinement") {
@@ -175,12 +211,29 @@ struct SettingsView: View {
             }
             .padding(18)
         }
-        .frame(width: 560, height: 700)
+        .frame(width: 560, height: 760)
         .onAppear {
             installKeyboardMonitor()
         }
         .onDisappear {
             removeKeyboardMonitor()
+        }
+    }
+
+    @ViewBuilder
+    private func vocabularyHintsSection(title: String, placeholder: String, footnote: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            MultilineInput(
+                text: $vocabularyHintsText,
+                placeholder: placeholder
+            )
+            .frame(height: 92)
+            Text(footnote)
+                .font(.footnote)
+                .foregroundColor(.secondary)
         }
     }
 
@@ -271,8 +324,11 @@ struct SettingsView: View {
 
         do {
             var config = Config.load()
+            config.transcriptionBackend = transcriptionBackend
+            config.deepgramApiKey = deepgramApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
             config.whisperModelPath = Config.normalizeOptionalPath(whisperModelPath)
             config.whisperLanguage = Config.normalizeLanguage(whisperLanguage)
+            config.whisperUseGPU = whisperUseGPU
             config.deepgramKeywords = Config.normalizeKeywords(fromMultilineText: vocabularyHintsText)
             config.enableRefinement = enableRefinement
 

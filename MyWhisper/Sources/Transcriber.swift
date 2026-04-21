@@ -5,6 +5,43 @@ final class Transcriber {
     private let runtime = WhisperRuntime.shared
 
     func transcribe(audioURL: URL, config: Config) async throws -> String {
+        switch config.transcriptionBackend {
+        case .deepgram:
+            return try await transcribeWithDeepgram(audioURL: audioURL, config: config)
+        case .localWhisper:
+            return try await transcribeLocally(audioURL: audioURL, config: config)
+        }
+    }
+
+    private func transcribeWithDeepgram(audioURL: URL, config: Config) async throws -> String {
+        guard config.hasValidDeepgramKey else {
+            throw TranscriberError.invalidDeepgramKey
+        }
+
+        let audioData = try Data(contentsOf: audioURL)
+
+        var request = URLRequest(url: deepgramURL(for: config))
+        request.httpMethod = "POST"
+        request.addValue("Token \(config.deepgramApiKey)", forHTTPHeaderField: "Authorization")
+        request.addValue("audio/wav", forHTTPHeaderField: "Content-Type")
+        request.httpBody = audioData
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            let errorMsg = String(data: data, encoding: .utf8) ?? "Unknown Error"
+            throw TranscriberError.deepgramAPI(errorMsg)
+        }
+
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let results = json?["results"] as? [String: Any]
+        let channels = results?["channels"] as? [[String: Any]]
+        let alternatives = channels?.first?["alternatives"] as? [[String: Any]]
+        return (alternatives?.first?["transcript"] as? String ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func transcribeLocally(audioURL: URL, config: Config) async throws -> String {
         let modelURL = try resolveModelURL(for: config)
         let samples = try WAVPCM16Loader.loadSamples(from: audioURL)
 
@@ -13,6 +50,21 @@ final class Transcriber {
         }
 
         return try await runtime.transcribe(samples: samples, modelURL: modelURL, config: config)
+    }
+
+    private func deepgramURL(for config: Config) -> URL {
+        var components = URLComponents(string: "https://api.deepgram.com/v1/listen")!
+        var queryItems = [
+            URLQueryItem(name: "model", value: "nova-3"),
+            URLQueryItem(name: "smart_format", value: "true")
+        ]
+
+        queryItems += config.deepgramKeywords.map {
+            URLQueryItem(name: "keyterm", value: $0)
+        }
+
+        components.queryItems = queryItems
+        return components.url!
     }
 
     private func resolveModelURL(for config: Config) throws -> URL {
@@ -270,6 +322,8 @@ private enum WAVPCM16Loader {
 }
 
 private enum TranscriberError: LocalizedError {
+    case invalidDeepgramKey
+    case deepgramAPI(String)
     case missingConfiguredModel(String)
     case missingBundledModel
     case failedToLoadModel(String)
@@ -279,6 +333,10 @@ private enum TranscriberError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
+        case .invalidDeepgramKey:
+            return "Invalid Deepgram API key. Set it in Settings or ~/.config/my-whisper/config.json."
+        case .deepgramAPI(let message):
+            return "Deepgram API error: \(message)"
         case .missingConfiguredModel(let path):
             return "Whisper model not found at \(path)."
         case .missingBundledModel:

@@ -21,13 +21,28 @@ struct HotkeyBinding: Codable, Equatable {
     )
 }
 
+enum TranscriptionBackend: String, Codable, CaseIterable, Identifiable {
+    case localWhisper = "localWhisper"
+    case deepgram = "deepgram"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .localWhisper:
+            return "Local Whisper"
+        case .deepgram:
+            return "Deepgram"
+        }
+    }
+}
+
 struct Config: Codable {
     static let defaultRefinementPrompt = "Fix spelling and grammar. Return only the fixed text."
     static let defaultWhisperLanguage = "en"
 
-    // Legacy field kept for backward compatibility with existing config files.
+    var transcriptionBackend: TranscriptionBackend
     var deepgramApiKey: String
-    // Reused as whisper.cpp initial prompt vocabulary hints.
     var deepgramKeywords: [String]
     var whisperModelPath: String?
     var whisperLanguage: String
@@ -40,6 +55,7 @@ struct Config: Codable {
     var historyHotkey: HotkeyBinding
 
     init(
+        transcriptionBackend: TranscriptionBackend = .localWhisper,
         deepgramApiKey: String = "",
         deepgramKeywords: [String] = [],
         whisperModelPath: String? = nil,
@@ -52,6 +68,7 @@ struct Config: Codable {
         abortHotkey: HotkeyBinding = .defaultAbort,
         historyHotkey: HotkeyBinding = .defaultHistory
     ) {
+        self.transcriptionBackend = transcriptionBackend
         self.deepgramApiKey = deepgramApiKey
         self.deepgramKeywords = Self.normalizeKeywords(deepgramKeywords)
         self.whisperModelPath = Self.normalizeOptionalPath(whisperModelPath)
@@ -66,6 +83,7 @@ struct Config: Codable {
     }
 
     enum CodingKeys: String, CodingKey {
+        case transcriptionBackend
         case deepgramApiKey
         case deepgramKeywords
         case whisperModelPath
@@ -89,6 +107,13 @@ struct Config: Codable {
             deepgramKeywords = Self.normalizeKeywords([keyword])
         } else {
             deepgramKeywords = []
+        }
+
+        if let decodedBackend = try container.decodeIfPresent(TranscriptionBackend.self, forKey: .transcriptionBackend) {
+            transcriptionBackend = decodedBackend
+        } else {
+            let trimmedKey = deepgramApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            transcriptionBackend = (!trimmedKey.isEmpty && trimmedKey != "YOUR_DEEPGRAM_API_KEY") ? .deepgram : .localWhisper
         }
 
         whisperModelPath = Self.normalizeOptionalPath(try container.decodeIfPresent(String.self, forKey: .whisperModelPath))
@@ -146,6 +171,11 @@ struct Config: Codable {
         return normalized.caseInsensitiveCompare("auto") == .orderedSame ? nil : normalized
     }
 
+    var hasValidDeepgramKey: Bool {
+        let key = deepgramApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !key.isEmpty && key != "YOUR_DEEPGRAM_API_KEY"
+    }
+
     var hasUsableRefiner: Bool {
         guard enableRefinement else {
             return false
@@ -164,6 +194,7 @@ struct Config: Codable {
         }
 
         let defaultConfig = Config(
+            transcriptionBackend: .localWhisper,
             deepgramApiKey: "",
             deepgramKeywords: [],
             whisperModelPath: nil,

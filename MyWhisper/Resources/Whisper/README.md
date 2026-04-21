@@ -35,3 +35,9 @@ If none match preferred names, app uses first bundled `ggml-*.bin` file it finds
 - Inference runs in-process through `whisper.framework`; no `whisper-cli` binary needed.
 - Recorder writes 16 kHz mono PCM WAV, which is fed directly to `whisper.cpp`.
 - Optional vocabulary hints from Settings are passed as `initial_prompt`.
+
+## Licensing
+
+- This project uses the MIT License. See `/LICENSE`.
+- The portion that uses `whisper.cpp` is based on the `whisper.cpp` library, which is also licensed under the MIT License.
+- See `/THIRD_PARTY_NOTICES.md` for a short third-party notice.

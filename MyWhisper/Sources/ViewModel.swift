@@ -4,33 +4,28 @@ import Combine
 
 class ViewModel: ObservableObject, @unchecked Sendable {
     static let shared = ViewModel()
-    
-    private let config = Config.load()
+
     private let recorder = AudioRecorder()
-    private let transcriber: Transcriber
-    private let refiner: LLMRefiner
-    
+    private let transcriber = Transcriber()
+    private let refiner = LLMRefiner()
+
     @Published var audioLevels: [Float] = Array(repeating: 0.1, count: 5)
-    
     @Published var state: AppState = .idle
-    
+
     private var cancellables = Set<AnyCancellable>()
-    
+
     init() {
-        self.transcriber = Transcriber(config: config)
-        self.refiner = LLMRefiner(config: config)
-        
         recorder.$audioLevels
             .receive(on: RunLoop.main)
             .sink { [weak self] levels in
                 self?.audioLevels = levels
             }
             .store(in: &cancellables)
-        
+
         HotkeyManager.shared.onToggle = { [weak self] in
             self?.toggleRecording()
         }
-        
+
         HotkeyManager.shared.onAbort = { [weak self] in
             self?.abortRecording()
         }
@@ -40,10 +35,10 @@ class ViewModel: ObservableObject, @unchecked Sendable {
                 HistoryWindowController.shared.show()
             }
         }
-        
+
         HotkeyManager.shared.registerHotkeysFromConfig()
     }
-    
+
     func toggleRecording() {
         if recorder.isRecording {
             stopAndProcess()
@@ -51,35 +46,36 @@ class ViewModel: ObservableObject, @unchecked Sendable {
             startRecording()
         }
     }
-    
+
     func startRecording() {
         state = .recording
         SoundManager.shared.playStart()
         recorder.startRecording()
     }
-    
+
     func abortRecording() {
         guard recorder.isRecording else { return }
         recorder.abortRecording()
         state = .idle
         SoundManager.shared.playStop()
     }
-    
+
     func stopAndProcess() {
         recorder.stopRecording()
         SoundManager.shared.playStop()
-        
+
         guard let url = recorder.audioFileURL else {
             state = .error("No audio file")
             resetStateAfterDelay()
             return
         }
-        
+
+        let config = Config.load()
         state = .transcribing
-        
+
         Task {
             do {
-                let transcript = try await transcriber.transcribe(audioURL: url)
+                let transcript = try await transcriber.transcribe(audioURL: url, config: config)
                 if transcript.isEmpty {
                     DispatchQueue.main.async {
                         self.state = .error("Empty transcript")
@@ -87,15 +83,15 @@ class ViewModel: ObservableObject, @unchecked Sendable {
                     }
                     return
                 }
-                
+
                 let finalText: String
-                if config.enableRefinement {
+                if config.hasUsableRefiner {
                     DispatchQueue.main.async { self.state = .refining }
-                    finalText = try await refiner.refine(text: transcript)
+                    finalText = try await refiner.refine(text: transcript, config: config)
                 } else {
                     finalText = transcript
                 }
-                
+
                 DispatchQueue.main.async {
                     self.state = .done
                     SoundManager.shared.playSuccess()
@@ -112,7 +108,7 @@ class ViewModel: ObservableObject, @unchecked Sendable {
             }
         }
     }
-    
+
     private func resetStateAfterDelay() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             self.state = .idle

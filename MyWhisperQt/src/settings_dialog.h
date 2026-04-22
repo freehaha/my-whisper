@@ -34,6 +34,7 @@ private slots:
     void startCaptureHistory();
     void saveSettings();
     void syncRefinementState();
+    void browseLlamaCppModel();
     void refreshAudioInputDevices();
 
 private:
@@ -56,7 +57,10 @@ private:
     QLineEdit *m_deepgramApiKeyEdit = nullptr;
     QPlainTextEdit *m_deepgramKeywordsEdit = nullptr;
     QCheckBox *m_enableRefinementCheck = nullptr;
+    QComboBox *m_refinementProviderCombo = nullptr;
     QLineEdit *m_openAiApiKeyEdit = nullptr;
+    QLineEdit *m_llamaCppModelPathEdit = nullptr;
+    QPushButton *m_llamaCppModelBrowseButton = nullptr;
     QPlainTextEdit *m_refinementPromptEdit = nullptr;
     QCheckBox *m_showDoneScreenCheck = nullptr;
     QComboBox *m_audioInputCombo = nullptr;

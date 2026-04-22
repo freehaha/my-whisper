@@ -69,7 +69,11 @@ AppConfig Config::defaultConfig() {
     config.deepgramKeywords.clear();
     config.openaiApiKey.clear();
     config.enableRefinement = false;
+    config.refinementProvider = QStringLiteral("openai");
     config.refinementPrompt = "Fix spelling and grammar. Return only the fixed text.";
+    config.llamaCppBinaryPath.clear();
+    config.llamaCppAdditionalArgs.clear();
+    config.llamaCppModelPath.clear();
     config.audioInputDeviceId.clear();
     config.toggleHotkey = HotkeyBinding::defaultToggle();
     config.abortHotkey = HotkeyBinding::defaultAbort();
@@ -104,7 +108,20 @@ AppConfig Config::load() {
         config.openaiApiKey = object.value("openaiApiKey").toString();
     }
     config.enableRefinement = object.value("enableRefinement").toBool(false);
+    config.refinementProvider = object.value("refinementProvider").toString(config.refinementProvider).trimmed().toLower();
+    if (config.refinementProvider.isEmpty()) {
+        config.refinementProvider = QStringLiteral("openai");
+    }
     config.refinementPrompt = object.value("refinementPrompt").toString(config.refinementPrompt);
+    if (object.contains("llamaCppBinaryPath") && !object.value("llamaCppBinaryPath").isNull()) {
+        config.llamaCppBinaryPath = object.value("llamaCppBinaryPath").toString();
+    }
+    if (object.contains("llamaCppAdditionalArgs") && !object.value("llamaCppAdditionalArgs").isNull()) {
+        config.llamaCppAdditionalArgs = object.value("llamaCppAdditionalArgs").toString();
+    }
+    if (object.contains("llamaCppModelPath") && !object.value("llamaCppModelPath").isNull()) {
+        config.llamaCppModelPath = object.value("llamaCppModelPath").toString();
+    }
     if (object.contains("audioInputDeviceId") && !object.value("audioInputDeviceId").isNull()) {
         config.audioInputDeviceId = object.value("audioInputDeviceId").toString();
     }
@@ -124,7 +141,11 @@ bool Config::save(const AppConfig &config, QString *errorMessage) {
     object["deepgramKeywords"] = stringListToJson(config.deepgramKeywords);
     object["openaiApiKey"] = config.openaiApiKey.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(config.openaiApiKey);
     object["enableRefinement"] = config.enableRefinement;
+    object["refinementProvider"] = config.refinementProvider;
     object["refinementPrompt"] = config.refinementPrompt;
+    object["llamaCppBinaryPath"] = config.llamaCppBinaryPath.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(config.llamaCppBinaryPath);
+    object["llamaCppAdditionalArgs"] = config.llamaCppAdditionalArgs.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(config.llamaCppAdditionalArgs);
+    object["llamaCppModelPath"] = config.llamaCppModelPath.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(config.llamaCppModelPath);
     object["audioInputDeviceId"] = config.audioInputDeviceId.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(config.audioInputDeviceId);
     object["toggleHotkey"] = hotkeyToJson(config.toggleHotkey);
     object["abortHotkey"] = hotkeyToJson(config.abortHotkey);
@@ -156,7 +177,15 @@ bool Config::hasValidDeepgramKey(const AppConfig &config) {
 }
 
 bool Config::hasUsableRefiner(const AppConfig &config) {
-    return config.enableRefinement
-        && !config.openaiApiKey.trimmed().isEmpty()
+    if (!config.enableRefinement) {
+        return false;
+    }
+
+    const QString provider = config.refinementProvider.trimmed().toLower();
+    if (provider == QStringLiteral("llama_cpp")) {
+        return !config.llamaCppModelPath.trimmed().isEmpty();
+    }
+
+    return !config.openaiApiKey.trimmed().isEmpty()
         && config.openaiApiKey != "YOUR_OPENAI_API_KEY";
 }

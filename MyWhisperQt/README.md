@@ -12,10 +12,63 @@ Qt 6 port of the `MyWhisper/` Swift menu bar app.
 - Selectable audio input device (system default or specific source)
 - Deepgram transcription
 - Deepgram keyterm biasing via Settings (one keyterm/phrase per line)
-- Optional OpenAI text refinement
+- Optional text refinement via OpenAI or local llama.cpp
 - Floating status overlay
 - Transcription history persisted to `~/.config/my-whisper/history.json`
 - Shared config file at `~/.config/my-whisper/config.json`
+- llama.cpp local refinement launches `llama-server` on a local port, queries via HTTP, and shuts down after 20 s idle
+
+## Config
+
+Config file: `~/.config/my-whisper/config.json`
+
+Common keys:
+
+- `deepgramApiKey`: Deepgram API key
+- `deepgramKeywords`: array of keyterms/phrases for Deepgram biasing
+- `enableRefinement`: enable post-transcription text refinement
+- `refinementProvider`: `openai` or `llama_cpp`
+- `refinementPrompt`: instruction sent to refinement backend
+- `audioInputDeviceId`: optional selected audio device id; empty/null = system default
+- `toggleHotkey`, `abortHotkey`, `historyHotkey`: hotkey objects with `keyCode` and `modifiers`
+- `showDoneScreen`: show temporary Done overlay after success
+
+OpenAI refinement keys:
+
+- `openaiApiKey`: required when `refinementProvider` = `openai`
+
+llama.cpp refinement keys:
+
+- `llamaCppModelPath`: required when `refinementProvider` = `llama_cpp`; path to GGUF model
+- `llamaCppBinaryPath`: optional explicit path to compiled `llama-server`; if empty, app searches `PATH`
+- `llamaCppAdditionalArgs`: optional raw CLI args appended to llama.cpp invocation
+
+Example:
+
+```json
+{
+  "deepgramApiKey": "YOUR_DEEPGRAM_API_KEY",
+  "deepgramKeywords": ["AcmeCloud", "MyWhisper", "GPU"],
+  "openaiApiKey": null,
+  "enableRefinement": true,
+  "refinementProvider": "llama_cpp",
+  "refinementPrompt": "Fix spelling and grammar. Return only the fixed text.",
+  "llamaCppBinaryPath": "/home/you/llama.cpp/build/bin/llama-server",
+  "llamaCppAdditionalArgs": "--ctx-size 4096 --threads 8 --gpu-layers 999",
+  "llamaCppModelPath": "/home/you/models/model.gguf",
+  "audioInputDeviceId": null,
+  "toggleHotkey": { "keyCode": 15, "modifiers": 6144 },
+  "abortHotkey": { "keyCode": 7, "modifiers": 6144 },
+  "historyHotkey": { "keyCode": 4, "modifiers": 6144 },
+  "showDoneScreen": false
+}
+```
+
+Notes:
+
+- `llamaCppAdditionalArgs` parsed with `QProcess::splitCommand()`.
+- If same llama.cpp flag appears in both built-in args and `llamaCppAdditionalArgs`, llama.cpp decides which value wins.
+- Settings UI currently exposes backend selection and model path; binary path and additional args are config-file-only.
 
 ## Build
 

@@ -10,9 +10,11 @@
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QEvent>
+#include <QFileDialog>
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
+#include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
@@ -47,7 +49,18 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     m_deepgramKeywordsEdit->setFixedHeight(90);
     m_openAiApiKeyEdit = new QLineEdit(apiGroup);
     m_openAiApiKeyEdit->setEchoMode(QLineEdit::PasswordEchoOnEdit);
-    m_enableRefinementCheck = new QCheckBox(tr("Enable OpenAI refinement"), apiGroup);
+    m_enableRefinementCheck = new QCheckBox(tr("Enable text refinement"), apiGroup);
+    m_refinementProviderCombo = new QComboBox(apiGroup);
+    m_refinementProviderCombo->addItem(tr("OpenAI"), QStringLiteral("openai"));
+    m_refinementProviderCombo->addItem(tr("llama.cpp (local)"), QStringLiteral("llama_cpp"));
+    m_llamaCppModelPathEdit = new QLineEdit(apiGroup);
+    m_llamaCppModelPathEdit->setPlaceholderText(tr("/path/to/model.gguf"));
+    m_llamaCppModelBrowseButton = new QPushButton(tr("Browse…"), apiGroup);
+    auto *llamaModelRow = new QWidget(apiGroup);
+    auto *llamaModelLayout = new QHBoxLayout(llamaModelRow);
+    llamaModelLayout->setContentsMargins(0, 0, 0, 0);
+    llamaModelLayout->addWidget(m_llamaCppModelPathEdit, 1);
+    llamaModelLayout->addWidget(m_llamaCppModelBrowseButton);
     m_refinementPromptEdit = new QPlainTextEdit(apiGroup);
     m_refinementPromptEdit->setPlaceholderText(tr("Fix spelling and grammar. Return only the fixed text."));
     m_refinementPromptEdit->setFixedHeight(90);
@@ -55,7 +68,9 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     apiLayout->addRow(tr("Deepgram API key"), m_deepgramApiKeyEdit);
     apiLayout->addRow(tr("Deepgram keyterms"), m_deepgramKeywordsEdit);
     apiLayout->addRow(QString(), m_enableRefinementCheck);
+    apiLayout->addRow(tr("Refinement backend"), m_refinementProviderCombo);
     apiLayout->addRow(tr("OpenAI API key"), m_openAiApiKeyEdit);
+    apiLayout->addRow(tr("llama.cpp model"), llamaModelRow);
     apiLayout->addRow(tr("Refinement prompt"), m_refinementPromptEdit);
 
     m_mediaDevices = new QMediaDevices(this);
@@ -117,6 +132,8 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     connect(buttons->button(QDialogButtonBox::Save), &QPushButton::clicked, this, &SettingsDialog::saveSettings);
     connect(buttons->button(QDialogButtonBox::Close), &QPushButton::clicked, this, &QDialog::close);
     connect(m_enableRefinementCheck, &QCheckBox::toggled, this, &SettingsDialog::syncRefinementState);
+    connect(m_refinementProviderCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, [this]() { syncRefinementState(); });
+    connect(m_llamaCppModelBrowseButton, &QPushButton::clicked, this, &SettingsDialog::browseLlamaCppModel);
     connect(m_mediaDevices, &QMediaDevices::audioInputsChanged, m_deviceRefreshTimer, QOverload<>::of(&QTimer::start));
 
     qApp->installEventFilter(this);
@@ -134,7 +151,10 @@ void SettingsDialog::setConfig(const AppConfig &config) {
     m_deepgramApiKeyEdit->setText(config.deepgramApiKey);
     m_deepgramKeywordsEdit->setPlainText(config.deepgramKeywords.join('\n'));
     m_enableRefinementCheck->setChecked(config.enableRefinement);
+    const int providerIndex = m_refinementProviderCombo->findData(config.refinementProvider);
+    m_refinementProviderCombo->setCurrentIndex(providerIndex >= 0 ? providerIndex : 0);
     m_openAiApiKeyEdit->setText(config.openaiApiKey);
+    m_llamaCppModelPathEdit->setText(config.llamaCppModelPath);
     m_refinementPromptEdit->setPlainText(config.refinementPrompt);
     m_showDoneScreenCheck->setChecked(config.showDoneScreen);
     populateAudioInputDevices(config.audioInputDeviceId);
@@ -196,7 +216,9 @@ void SettingsDialog::saveSettings() {
         }
     }
     updated.enableRefinement = m_enableRefinementCheck->isChecked();
+    updated.refinementProvider = m_refinementProviderCombo->currentData().toString().trimmed();
     updated.openaiApiKey = m_openAiApiKeyEdit->text().trimmed();
+    updated.llamaCppModelPath = m_llamaCppModelPathEdit->text().trimmed();
     updated.refinementPrompt = m_refinementPromptEdit->toPlainText().trimmed();
     updated.showDoneScreen = m_showDoneScreenCheck->isChecked();
     updated.audioInputDeviceId = m_audioInputCombo->currentData().toString().trimmed();
@@ -236,8 +258,26 @@ void SettingsDialog::saveSettings() {
 
 void SettingsDialog::syncRefinementState() {
     const bool enabled = m_enableRefinementCheck->isChecked();
-    m_openAiApiKeyEdit->setEnabled(enabled);
+    const QString provider = m_refinementProviderCombo->currentData().toString();
+    const bool useOpenAi = enabled && provider == QStringLiteral("openai");
+    const bool useLlamaCpp = enabled && provider == QStringLiteral("llama_cpp");
+
+    m_refinementProviderCombo->setEnabled(enabled);
+    m_openAiApiKeyEdit->setEnabled(useOpenAi);
+    m_llamaCppModelPathEdit->setEnabled(useLlamaCpp);
+    m_llamaCppModelBrowseButton->setEnabled(useLlamaCpp);
     m_refinementPromptEdit->setEnabled(enabled);
+}
+
+void SettingsDialog::browseLlamaCppModel() {
+    const QString path = QFileDialog::getOpenFileName(
+        this,
+        tr("Select llama.cpp model"),
+        m_llamaCppModelPathEdit->text().trimmed(),
+        tr("GGUF models (*.gguf);;All files (*)"));
+    if (!path.isEmpty()) {
+        m_llamaCppModelPathEdit->setText(path);
+    }
 }
 
 void SettingsDialog::refreshAudioInputDevices() {

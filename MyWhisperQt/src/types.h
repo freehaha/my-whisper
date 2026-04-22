@@ -124,7 +124,11 @@ struct AppConfig {
     QStringList deepgramKeywords;
     QString openaiApiKey;
     bool enableRefinement = false;
+    QString refinementProvider = QStringLiteral("openai");
     QString refinementPrompt;
+    QString llamaCppBinaryPath;
+    QString llamaCppAdditionalArgs;
+    QString llamaCppModelPath;
     QString audioInputDeviceId;
     HotkeyBinding toggleHotkey = HotkeyBinding::defaultToggle();
     HotkeyBinding abortHotkey = HotkeyBinding::defaultAbort();

@@ -21,7 +21,7 @@ Q_LOGGING_CATEGORY(lcLlmRefiner, "mywhisper.llm_refiner")
 
 namespace {
 constexpr int kLlamaServerPort = 18765;
-constexpr int kLlamaServerIdleMs = 20000;
+constexpr int kLlamaServerIdleMs = 120000;
 constexpr int kLlamaServerProbeIntervalMs = 500;
 constexpr int kLlamaServerProbeMaxAttempts = 40;
 
@@ -392,7 +392,7 @@ void LLMRefiner::flushPendingLlamaRequests() {
 
         QJsonObject userMessage;
         userMessage["role"] = QStringLiteral("user");
-        userMessage["content"] = requestData.text;
+        userMessage["content"] = QStringLiteral("<text>") + requestData.text + QStringLiteral("</text>");
         messages.append(userMessage);
         body["messages"] = messages;
 

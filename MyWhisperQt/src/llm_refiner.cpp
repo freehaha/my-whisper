@@ -377,8 +377,11 @@ void LLMRefiner::flushPendingLlamaRequests() {
         request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
 
         QJsonObject body;
-        body["temperature"] = 0.2;
-        body["max_tokens"] = 256;
+        body["temperature"] = 1.0f;
+        body["max_tokens"] = 2048;
+        body["top_p"] = 0.95;
+        body["top_k"] = 64;
+        body["max_tokens"] = 2048;
         body["stream"] = false;
 
         QJsonArray messages;

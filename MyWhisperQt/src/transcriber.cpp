@@ -62,6 +62,21 @@ QString firstLine(const QByteArray &bytes) {
 QString jsonString(const QJsonObject &object, const char *key) {
     return object.value(QLatin1String(key)).toString().trimmed();
 }
+
+bool assemblyAiModelSupportsKeyterms(const QString &speechModel) {
+    return !speechModel.trimmed().contains(QStringLiteral("whisper"), Qt::CaseInsensitive);
+}
+
+QString assemblyAiKeytermsPrompt(const QStringList &keyterms) {
+    QJsonArray array;
+    for (const QString &keyterm : keyterms) {
+        const QString trimmed = keyterm.trimmed();
+        if (!trimmed.isEmpty()) {
+            array.append(trimmed);
+        }
+    }
+    return array.isEmpty() ? QString() : QString::fromUtf8(QJsonDocument(array).toJson(QJsonDocument::Compact));
+}
 }
 
 class AssemblyAIWebSocket : public QObject {
@@ -85,7 +100,7 @@ public:
         return m_state == State::Open && m_socket && m_socket->state() == QAbstractSocket::ConnectedState;
     }
 
-    void connectToAssemblyAI(const QString &apiKey, const QString &speechModel, int sampleRate) {
+    void connectToAssemblyAI(const QString &apiKey, const QString &speechModel, int sampleRate, const QStringList &keytermsPrompt) {
         abort();
 
         m_state = State::Connecting;
@@ -96,9 +111,16 @@ public:
         m_fragmentOpcode = 0;
         m_apiKey = apiKey.trimmed();
 
+        const QString normalizedSpeechModel = speechModel.trimmed().isEmpty() ? QStringLiteral("u3-rt-pro") : speechModel.trimmed();
         QUrlQuery query;
-        query.addQueryItem(QStringLiteral("speech_model"), speechModel.trimmed().isEmpty() ? QStringLiteral("u3-rt-pro") : speechModel.trimmed());
+        query.addQueryItem(QStringLiteral("speech_model"), normalizedSpeechModel);
         query.addQueryItem(QStringLiteral("sample_rate"), QString::number(sampleRate));
+        if (assemblyAiModelSupportsKeyterms(normalizedSpeechModel)) {
+            const QString keytermsJson = assemblyAiKeytermsPrompt(keytermsPrompt);
+            if (!keytermsJson.isEmpty()) {
+                query.addQueryItem(QStringLiteral("keyterms_prompt"), keytermsJson);
+            }
+        }
         m_requestTarget = QStringLiteral("%1?%2").arg(QString::fromLatin1(AssemblyAiPath), query.toString(QUrl::FullyEncoded));
 
         m_socket = new QSslSocket(this);
@@ -542,6 +564,7 @@ void Transcriber::startStreaming(const AppConfig &config, const QAudioFormat &fo
 
     qCDebug(lcTranscriber) << "Starting AssemblyAI streaming transcription. sampleRate=" << format.sampleRate()
                            << "speechModel=" << config.assemblyAiSpeechModel
+                           << "keyterms=" << config.deepgramKeywords
                            << "chunkBytes=" << m_streamingChunkBytes;
 
     m_streamingAudioBuffer.clear();
@@ -587,7 +610,7 @@ void Transcriber::startStreaming(const AppConfig &config, const QAudioFormat &fo
         resetStreamingState();
         emit errorOccurred(tr("AssemblyAI streaming connection closed unexpectedly."));
     };
-    m_streamingSocket->connectToAssemblyAI(config.assemblyAiApiKey, config.normalizedAssemblyAiSpeechModel(), format.sampleRate());
+    m_streamingSocket->connectToAssemblyAI(config.assemblyAiApiKey, config.normalizedAssemblyAiSpeechModel(), format.sampleRate(), config.deepgramKeywords);
 }
 
 void Transcriber::streamAudio(const QByteArray &data) {

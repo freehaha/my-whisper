@@ -4,6 +4,7 @@
 #include <QAudioOutput>
 #include <QClipboard>
 #include <QGuiApplication>
+#include <QMediaDevices>
 #include <QMediaPlayer>
 #include <QUrl>
 
@@ -42,6 +43,14 @@ public:
     }
 
 private:
+    void resetPlayer() {
+        m_playWhenReady = false;
+        delete m_player;
+        m_player = nullptr;
+        delete m_audioOutput;
+        m_audioOutput = nullptr;
+    }
+
     void ensurePlayer() {
         if (m_player) {
             return;
@@ -52,6 +61,14 @@ private:
 
         m_player = new QMediaPlayer(qApp);
         m_player->setAudioOutput(m_audioOutput);
+
+        if (!m_deviceChangeConnected) {
+            m_deviceChangeConnected = true;
+            auto *devices = new QMediaDevices(qApp);
+            QObject::connect(devices, &QMediaDevices::audioOutputsChanged, qApp, [this]() {
+                resetPlayer();
+            });
+        }
 
         QObject::connect(m_player, &QMediaPlayer::mediaStatusChanged, m_player, [this](QMediaPlayer::MediaStatus status) {
             switch (status) {
@@ -107,6 +124,7 @@ private:
     QAudioOutput *m_audioOutput = nullptr;
     QMediaPlayer *m_player = nullptr;
     bool m_playWhenReady = false;
+    bool m_deviceChangeConnected = false;
 };
 
 MediaCue &dingCue() {

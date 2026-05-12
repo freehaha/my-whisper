@@ -33,6 +33,7 @@ private slots:
     void startCaptureAbort();
     void startCaptureHistory();
     void saveSettings();
+    void syncTranscriptionState();
     void syncRefinementState();
     void browseLlamaCppModel();
     void refreshAudioInputDevices();
@@ -54,8 +55,11 @@ private:
     AppConfig m_config;
     CaptureTarget m_captureTarget = CaptureTarget::None;
 
+    QComboBox *m_transcriptionBackendCombo = nullptr;
     QLineEdit *m_deepgramApiKeyEdit = nullptr;
     QPlainTextEdit *m_deepgramKeywordsEdit = nullptr;
+    QLineEdit *m_assemblyAiApiKeyEdit = nullptr;
+    QLineEdit *m_assemblyAiSpeechModelEdit = nullptr;
     QCheckBox *m_enableRefinementCheck = nullptr;
     QComboBox *m_refinementProviderCombo = nullptr;
     QLineEdit *m_openAiApiKeyEdit = nullptr;

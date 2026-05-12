@@ -20,6 +20,7 @@
 #include <QPen>
 #include <QSystemTrayIcon>
 #include <QTimer>
+#include <QDebug>
 
 AppController::AppController(std::optional<bool> overrideShowDoneScreen, QObject *parent)
     : QObject(parent)
@@ -42,6 +43,11 @@ AppController::AppController(std::optional<bool> overrideShowDoneScreen, QObject
     m_recorder->setPreferredInputDeviceId(m_config.audioInputDeviceId);
 
     connect(m_recorder, &AudioRecorder::audioLevelsChanged, m_statusOverlay, &StatusOverlay::setAudioLevels);
+    connect(m_recorder, &AudioRecorder::audioChunkCaptured, this, [this](const QByteArray &data) {
+        if (Config::usesAssemblyAi(m_config)) {
+            m_transcriber->streamAudio(data);
+        }
+    });
     connect(m_recorder, &AudioRecorder::errorOccurred, this, &AppController::handleRecorderError);
     connect(m_transcriber, &Transcriber::transcriptionReady, this, &AppController::handleTranscriptionReady);
     connect(m_transcriber, &Transcriber::errorOccurred, this, &AppController::handleProcessingError);
@@ -101,7 +107,9 @@ void AppController::abortRecording() {
     }
 
     m_resetTimer->stop();
+    m_transcriber->cancelStreaming();
     m_recorder->abortRecording();
+    cleanupPendingAudioFile();
     PlatformIntegration::playStopSound();
     setState(AppState::Idle);
 }
@@ -142,8 +150,17 @@ void AppController::handleRefinementReady(const QString &text) {
 }
 
 void AppController::handleProcessingError(const QString &message) {
+    qWarning().noquote() << "Processing error:" << message;
+
+    if (m_recorder->isRecording()) {
+        m_recorder->abortRecording();
+    }
+    m_transcriber->cancelStreaming();
     PlatformIntegration::playErrorSound();
     setState(AppState::Error, message);
+    if (m_trayIcon && QSystemTrayIcon::supportsMessages()) {
+        m_trayIcon->showMessage(tr("MyWhisperQt error"), message, QSystemTrayIcon::Warning, 15000);
+    }
     cleanupPendingAudioFile();
     scheduleIdleReset();
 }
@@ -201,9 +218,24 @@ QIcon AppController::createTrayAppIcon() const {
 
 void AppController::startRecording() {
     m_resetTimer->stop();
+
+    if (Config::usesAssemblyAi(m_config) && !Config::hasValidAssemblyAiKey(m_config)) {
+        handleProcessingError(tr("Invalid AssemblyAI API key. Set it in %1").arg(Config::configPath()));
+        return;
+    }
+
     setState(AppState::Recording);
     PlatformIntegration::playStartSound();
     m_recorder->startRecording();
+
+    if (!m_recorder->isRecording()) {
+        return;
+    }
+
+    m_pendingAudioFile = m_recorder->audioFilePath();
+    if (Config::usesAssemblyAi(m_config)) {
+        m_transcriber->startStreaming(m_config, m_recorder->audioFormat());
+    }
 }
 
 void AppController::stopAndProcess() {
@@ -218,6 +250,12 @@ void AppController::stopAndProcess() {
 
     m_pendingAudioFile = path;
     setState(AppState::Transcribing);
+
+    if (Config::usesAssemblyAi(m_config)) {
+        m_transcriber->finishStreaming();
+        return;
+    }
+
     m_transcriber->transcribe(path, m_config);
 }
 
@@ -235,7 +273,7 @@ void AppController::setState(AppState state, const QString &message) {
 }
 
 void AppController::scheduleIdleReset() {
-    const int resetDelayMs = (m_state == AppState::Done) ? 900 : 2000;
+    const int resetDelayMs = (m_state == AppState::Done) ? 900 : (m_state == AppState::Error ? 15000 : 2000);
     m_resetTimer->start(resetDelayMs);
 }
 

@@ -120,8 +120,11 @@ struct HotkeyBinding {
 };
 
 struct AppConfig {
+    QString transcriptionBackend = QStringLiteral("deepgram");
     QString deepgramApiKey;
     QStringList deepgramKeywords;
+    QString assemblyAiApiKey;
+    QString assemblyAiSpeechModel = QStringLiteral("u3-rt-pro");
     QString openaiApiKey;
     bool enableRefinement = false;
     QString refinementProvider = QStringLiteral("openai");
@@ -134,6 +137,11 @@ struct AppConfig {
     HotkeyBinding abortHotkey = HotkeyBinding::defaultAbort();
     HotkeyBinding historyHotkey = HotkeyBinding::defaultHistory();
     bool showDoneScreen = false;
+
+    QString normalizedAssemblyAiSpeechModel() const {
+        const QString trimmed = assemblyAiSpeechModel.trimmed();
+        return trimmed.isEmpty() ? QStringLiteral("u3-rt-pro") : trimmed;
+    }
 };
 
 enum class AppState {

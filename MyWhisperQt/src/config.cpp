@@ -57,6 +57,16 @@ HotkeyBinding hotkeyFromJson(const QJsonValue &value, const HotkeyBinding &fallb
     binding.modifiers = static_cast<quint32>(object.value("modifiers").toInt(static_cast<int>(fallback.modifiers)));
     return binding;
 }
+
+QString normalizedTranscriptionBackend(QString value) {
+    value = value.trimmed().toLower();
+    if (value == QStringLiteral("assemblyai")
+        || value == QStringLiteral("assembly_ai")
+        || value == QStringLiteral("assembly-ai")) {
+        return QStringLiteral("assemblyai");
+    }
+    return QStringLiteral("deepgram");
+}
 }
 
 QString Config::configPath() {
@@ -65,8 +75,11 @@ QString Config::configPath() {
 
 AppConfig Config::defaultConfig() {
     AppConfig config;
+    config.transcriptionBackend = QStringLiteral("deepgram");
     config.deepgramApiKey = "YOUR_DEEPGRAM_API_KEY";
     config.deepgramKeywords.clear();
+    config.assemblyAiApiKey = "YOUR_ASSEMBLYAI_API_KEY";
+    config.assemblyAiSpeechModel = QStringLiteral("u3-rt-pro");
     config.openaiApiKey.clear();
     config.enableRefinement = false;
     config.refinementProvider = QStringLiteral("openai");
@@ -102,8 +115,14 @@ AppConfig Config::load() {
 
     const QJsonObject object = document.object();
     AppConfig config = defaultConfig();
+    config.transcriptionBackend = normalizedTranscriptionBackend(object.value("transcriptionBackend").toString(config.transcriptionBackend));
     config.deepgramApiKey = object.value("deepgramApiKey").toString(config.deepgramApiKey);
     config.deepgramKeywords = stringListFromJson(object.value("deepgramKeywords"));
+    config.assemblyAiApiKey = object.value("assemblyAiApiKey").toString(config.assemblyAiApiKey);
+    config.assemblyAiSpeechModel = object.value("assemblyAiSpeechModel").toString(config.assemblyAiSpeechModel).trimmed();
+    if (config.assemblyAiSpeechModel.isEmpty()) {
+        config.assemblyAiSpeechModel = QStringLiteral("u3-rt-pro");
+    }
     if (object.contains("openaiApiKey") && !object.value("openaiApiKey").isNull()) {
         config.openaiApiKey = object.value("openaiApiKey").toString();
     }
@@ -137,8 +156,11 @@ bool Config::save(const AppConfig &config, QString *errorMessage) {
     QDir().mkpath(QFileInfo(path).dir().absolutePath());
 
     QJsonObject object;
+    object["transcriptionBackend"] = normalizedTranscriptionBackend(config.transcriptionBackend);
     object["deepgramApiKey"] = config.deepgramApiKey;
     object["deepgramKeywords"] = stringListToJson(config.deepgramKeywords);
+    object["assemblyAiApiKey"] = config.assemblyAiApiKey;
+    object["assemblyAiSpeechModel"] = config.normalizedAssemblyAiSpeechModel();
     object["openaiApiKey"] = config.openaiApiKey.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(config.openaiApiKey);
     object["enableRefinement"] = config.enableRefinement;
     object["refinementProvider"] = config.refinementProvider;
@@ -172,8 +194,16 @@ bool Config::save(const AppConfig &config, QString *errorMessage) {
     return true;
 }
 
+bool Config::usesAssemblyAi(const AppConfig &config) {
+    return normalizedTranscriptionBackend(config.transcriptionBackend) == QStringLiteral("assemblyai");
+}
+
 bool Config::hasValidDeepgramKey(const AppConfig &config) {
     return !config.deepgramApiKey.trimmed().isEmpty() && config.deepgramApiKey != "YOUR_DEEPGRAM_API_KEY";
+}
+
+bool Config::hasValidAssemblyAiKey(const AppConfig &config) {
+    return !config.assemblyAiApiKey.trimmed().isEmpty() && config.assemblyAiApiKey != "YOUR_ASSEMBLYAI_API_KEY";
 }
 
 bool Config::hasUsableRefiner(const AppConfig &config) {

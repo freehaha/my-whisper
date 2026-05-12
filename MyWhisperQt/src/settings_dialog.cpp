@@ -34,7 +34,7 @@ QString encodeAudioDeviceId(const QAudioDevice &device) {
 SettingsDialog::SettingsDialog(QWidget *parent)
     : QDialog(parent) {
     setWindowTitle(tr("MyWhisperQt Settings"));
-    resize(560, 580);
+    resize(600, 700);
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(18, 18, 18, 18);
@@ -42,11 +42,18 @@ SettingsDialog::SettingsDialog(QWidget *parent)
 
     auto *apiGroup = new QGroupBox(tr("API Settings"), this);
     auto *apiLayout = new QFormLayout(apiGroup);
+    m_transcriptionBackendCombo = new QComboBox(apiGroup);
+    m_transcriptionBackendCombo->addItem(tr("Deepgram (upload after recording)"), QStringLiteral("deepgram"));
+    m_transcriptionBackendCombo->addItem(tr("AssemblyAI (streaming)"), QStringLiteral("assemblyai"));
     m_deepgramApiKeyEdit = new QLineEdit(apiGroup);
     m_deepgramApiKeyEdit->setEchoMode(QLineEdit::PasswordEchoOnEdit);
     m_deepgramKeywordsEdit = new QPlainTextEdit(apiGroup);
     m_deepgramKeywordsEdit->setPlaceholderText(tr("One keyterm/phrase per line. Example:\nAcmeCloud\nMyWhisper\nGPU"));
     m_deepgramKeywordsEdit->setFixedHeight(90);
+    m_assemblyAiApiKeyEdit = new QLineEdit(apiGroup);
+    m_assemblyAiApiKeyEdit->setEchoMode(QLineEdit::PasswordEchoOnEdit);
+    m_assemblyAiSpeechModelEdit = new QLineEdit(apiGroup);
+    m_assemblyAiSpeechModelEdit->setPlaceholderText(tr("u3-rt-pro"));
     m_openAiApiKeyEdit = new QLineEdit(apiGroup);
     m_openAiApiKeyEdit->setEchoMode(QLineEdit::PasswordEchoOnEdit);
     m_enableRefinementCheck = new QCheckBox(tr("Enable text refinement"), apiGroup);
@@ -65,8 +72,11 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     m_refinementPromptEdit->setPlaceholderText(tr("Fix spelling and grammar. Return only the fixed text."));
     m_refinementPromptEdit->setFixedHeight(90);
 
+    apiLayout->addRow(tr("Transcription backend"), m_transcriptionBackendCombo);
     apiLayout->addRow(tr("Deepgram API key"), m_deepgramApiKeyEdit);
     apiLayout->addRow(tr("Deepgram keyterms"), m_deepgramKeywordsEdit);
+    apiLayout->addRow(tr("AssemblyAI API key"), m_assemblyAiApiKeyEdit);
+    apiLayout->addRow(tr("AssemblyAI speech model"), m_assemblyAiSpeechModelEdit);
     apiLayout->addRow(QString(), m_enableRefinementCheck);
     apiLayout->addRow(tr("Refinement backend"), m_refinementProviderCombo);
     apiLayout->addRow(tr("OpenAI API key"), m_openAiApiKeyEdit);
@@ -131,6 +141,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     connect(m_historyButton, &QPushButton::clicked, this, &SettingsDialog::startCaptureHistory);
     connect(buttons->button(QDialogButtonBox::Save), &QPushButton::clicked, this, &SettingsDialog::saveSettings);
     connect(buttons->button(QDialogButtonBox::Close), &QPushButton::clicked, this, &QDialog::close);
+    connect(m_transcriptionBackendCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, [this]() { syncTranscriptionState(); });
     connect(m_enableRefinementCheck, &QCheckBox::toggled, this, &SettingsDialog::syncRefinementState);
     connect(m_refinementProviderCombo, qOverload<int>(&QComboBox::currentIndexChanged), this, [this]() { syncRefinementState(); });
     connect(m_llamaCppModelBrowseButton, &QPushButton::clicked, this, &SettingsDialog::browseLlamaCppModel);
@@ -139,6 +150,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     qApp->installEventFilter(this);
     populateAudioInputDevices(QString());
     updateHotkeyLabels();
+    syncTranscriptionState();
     syncRefinementState();
 }
 
@@ -148,8 +160,12 @@ SettingsDialog::~SettingsDialog() {
 
 void SettingsDialog::setConfig(const AppConfig &config) {
     m_config = config;
+    const int transcriptionBackendIndex = m_transcriptionBackendCombo->findData(Config::usesAssemblyAi(config) ? QStringLiteral("assemblyai") : QStringLiteral("deepgram"));
+    m_transcriptionBackendCombo->setCurrentIndex(transcriptionBackendIndex >= 0 ? transcriptionBackendIndex : 0);
     m_deepgramApiKeyEdit->setText(config.deepgramApiKey);
     m_deepgramKeywordsEdit->setPlainText(config.deepgramKeywords.join('\n'));
+    m_assemblyAiApiKeyEdit->setText(config.assemblyAiApiKey);
+    m_assemblyAiSpeechModelEdit->setText(config.normalizedAssemblyAiSpeechModel());
     m_enableRefinementCheck->setChecked(config.enableRefinement);
     const int providerIndex = m_refinementProviderCombo->findData(config.refinementProvider);
     m_refinementProviderCombo->setCurrentIndex(providerIndex >= 0 ? providerIndex : 0);
@@ -160,6 +176,7 @@ void SettingsDialog::setConfig(const AppConfig &config) {
     populateAudioInputDevices(config.audioInputDeviceId);
     setCaptureTarget(CaptureTarget::None);
     updateHotkeyLabels();
+    syncTranscriptionState();
     syncRefinementState();
     showMessage(QString(), false);
 }
@@ -207,6 +224,7 @@ void SettingsDialog::startCaptureHistory() {
 
 void SettingsDialog::saveSettings() {
     AppConfig updated = m_config;
+    updated.transcriptionBackend = m_transcriptionBackendCombo->currentData().toString().trimmed().toLower();
     updated.deepgramApiKey = m_deepgramApiKeyEdit->text().trimmed();
     updated.deepgramKeywords.clear();
     for (const QString &line : m_deepgramKeywordsEdit->toPlainText().split('\n')) {
@@ -214,6 +232,11 @@ void SettingsDialog::saveSettings() {
         if (!trimmed.isEmpty()) {
             updated.deepgramKeywords.append(trimmed);
         }
+    }
+    updated.assemblyAiApiKey = m_assemblyAiApiKeyEdit->text().trimmed();
+    updated.assemblyAiSpeechModel = m_assemblyAiSpeechModelEdit->text().trimmed();
+    if (updated.assemblyAiSpeechModel.isEmpty()) {
+        updated.assemblyAiSpeechModel = QStringLiteral("u3-rt-pro");
     }
     updated.enableRefinement = m_enableRefinementCheck->isChecked();
     updated.refinementProvider = m_refinementProviderCombo->currentData().toString().trimmed();
@@ -254,6 +277,16 @@ void SettingsDialog::saveSettings() {
     } else {
         showMessage(tr("Settings saved. Global hotkeys are only implemented on macOS in this port."), false);
     }
+}
+
+void SettingsDialog::syncTranscriptionState() {
+    const QString backend = m_transcriptionBackendCombo->currentData().toString();
+    const bool useAssemblyAi = backend == QStringLiteral("assemblyai");
+
+    m_deepgramApiKeyEdit->setEnabled(!useAssemblyAi);
+    m_deepgramKeywordsEdit->setEnabled(!useAssemblyAi);
+    m_assemblyAiApiKeyEdit->setEnabled(useAssemblyAi);
+    m_assemblyAiSpeechModelEdit->setEnabled(useAssemblyAi);
 }
 
 void SettingsDialog::syncRefinementState() {

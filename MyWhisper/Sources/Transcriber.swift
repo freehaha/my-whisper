@@ -8,6 +8,8 @@ final class Transcriber {
         switch config.transcriptionBackend {
         case .deepgram:
             return try await transcribeWithDeepgram(audioURL: audioURL, config: config)
+        case .assemblyAI:
+            return try await transcribeWithAssemblyAI(audioURL: audioURL, config: config)
         case .localWhisper:
             return try await transcribeLocally(audioURL: audioURL, config: config)
         }
@@ -39,6 +41,129 @@ final class Transcriber {
         let alternatives = channels?.first?["alternatives"] as? [[String: Any]]
         return (alternatives?.first?["transcript"] as? String ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func transcribeWithAssemblyAI(audioURL: URL, config: Config) async throws -> String {
+        guard config.hasValidAssemblyAiKey else {
+            throw TranscriberError.invalidAssemblyAiKey
+        }
+
+        let pcmData = try WAVPCM16Loader.loadPCMData(from: audioURL)
+        guard !pcmData.isEmpty else {
+            throw TranscriberError.emptyAudio
+        }
+
+        var components = URLComponents(string: "wss://streaming.assemblyai.com/v3/ws")!
+        components.queryItems = [
+            URLQueryItem(name: "speech_model", value: config.normalizedAssemblyAiSpeechModel),
+            URLQueryItem(name: "sample_rate", value: "16000")
+        ]
+
+        var request = URLRequest(url: components.url!)
+        request.addValue(config.assemblyAiApiKey.trimmingCharacters(in: .whitespacesAndNewlines), forHTTPHeaderField: "Authorization")
+
+        let task = URLSession.shared.webSocketTask(with: request)
+        task.resume()
+
+        return try await withTaskCancellationHandler {
+            try await Self.runAssemblyAISession(task: task, pcmData: pcmData)
+        } onCancel: {
+            task.cancel(with: .goingAway, reason: nil)
+        }
+    }
+
+    private static func runAssemblyAISession(task: URLSessionWebSocketTask, pcmData: Data) async throws -> String {
+        try await withThrowingTaskGroup(of: String?.self) { group in
+            group.addTask {
+                try await receiveAssemblyAITranscript(task: task)
+            }
+
+            group.addTask {
+                try await sendAssemblyAIAudio(task: task, pcmData: pcmData)
+                return nil
+            }
+
+            while let result = try await group.next() {
+                if let transcript = result {
+                    group.cancelAll()
+                    task.cancel(with: .normalClosure, reason: nil)
+                    return transcript
+                }
+            }
+
+            throw TranscriberError.assemblyAIAPI("Connection closed without a transcript.")
+        }
+    }
+
+    private static func receiveAssemblyAITranscript(task: URLSessionWebSocketTask) async throws -> String {
+        var finalTurns: [String] = []
+        var latestPartial = ""
+
+        while !Task.isCancelled {
+            let message = try await task.receive()
+            guard case .string(let text) = message else {
+                continue
+            }
+
+            guard let data = text.data(using: .utf8),
+                  let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let type = json["type"] as? String else {
+                continue
+            }
+
+            switch type {
+            case "Begin":
+                continue
+            case "Turn":
+                let transcript = (json["transcript"] as? String ?? "")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                if (json["end_of_turn"] as? Bool) == true {
+                    if !transcript.isEmpty {
+                        finalTurns.append(transcript)
+                    }
+                    latestPartial = ""
+                } else {
+                    latestPartial = transcript
+                }
+            case "Termination":
+                return assembleAssemblyAITranscript(finalTurns: finalTurns, latestPartial: latestPartial)
+            case "Error":
+                let message = (json["message"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+                throw TranscriberError.assemblyAIAPI(message?.isEmpty == false ? message! : "Streaming API returned an error.")
+            default:
+                continue
+            }
+        }
+
+        return assembleAssemblyAITranscript(finalTurns: finalTurns, latestPartial: latestPartial)
+    }
+
+    private static func sendAssemblyAIAudio(task: URLSessionWebSocketTask, pcmData: Data) async throws {
+        let chunkSize = 1_600 // 50 ms of 16 kHz 16-bit mono PCM.
+        var offset = 0
+
+        while offset < pcmData.count {
+            let end = min(offset + chunkSize, pcmData.count)
+            try await task.send(.data(pcmData.subdata(in: offset..<end)))
+            offset = end
+        }
+
+        try await task.send(.string("{\"type\":\"Terminate\"}"))
+    }
+
+    private static func assembleAssemblyAITranscript(finalTurns: [String], latestPartial: String) -> String {
+        let finalTranscript = finalTurns.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+        let partial = latestPartial.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if finalTranscript.isEmpty {
+            return partial
+        }
+
+        if partial.isEmpty {
+            return finalTranscript
+        }
+
+        return "\(finalTranscript) \(partial)".trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func transcribeLocally(audioURL: URL, config: Config) async throws -> String {
@@ -220,7 +345,39 @@ private actor WhisperRuntime {
 }
 
 private enum WAVPCM16Loader {
+    private struct WAVData {
+        let data: Data
+        let audioDataRange: Range<Int>
+    }
+
     static func loadSamples(from url: URL) throws -> [Float] {
+        let wavData = try loadValidatedPCM16Mono16kWAVData(from: url)
+        let data = wavData.data
+        let audioDataRange = wavData.audioDataRange
+
+        return data.withUnsafeBytes { rawBuffer in
+            let bytes = rawBuffer.bindMemory(to: UInt8.self)
+            let sampleCount = audioDataRange.count / 2
+            var samples: [Float] = []
+            samples.reserveCapacity(sampleCount)
+
+            var index = audioDataRange.lowerBound
+            while index < audioDataRange.upperBound {
+                let sample = Int16(bitPattern: UInt16(bytes[index]) | (UInt16(bytes[index + 1]) << 8))
+                samples.append(Float(sample) / 32768.0)
+                index += 2
+            }
+
+            return samples
+        }
+    }
+
+    static func loadPCMData(from url: URL) throws -> Data {
+        let wavData = try loadValidatedPCM16Mono16kWAVData(from: url)
+        return wavData.data.subdata(in: wavData.audioDataRange)
+    }
+
+    private static func loadValidatedPCM16Mono16kWAVData(from url: URL) throws -> WAVData {
         let data = try Data(contentsOf: url)
 
         guard data.count >= 44 else {
@@ -288,21 +445,7 @@ private enum WAVPCM16Loader {
             throw TranscriberError.invalidAudioFormat("Invalid PCM sample byte count.")
         }
 
-        return data.withUnsafeBytes { rawBuffer in
-            let bytes = rawBuffer.bindMemory(to: UInt8.self)
-            let sampleCount = audioDataRange.count / 2
-            var samples: [Float] = []
-            samples.reserveCapacity(sampleCount)
-
-            var index = audioDataRange.lowerBound
-            while index < audioDataRange.upperBound {
-                let sample = Int16(bitPattern: UInt16(bytes[index]) | (UInt16(bytes[index + 1]) << 8))
-                samples.append(Float(sample) / 32768.0)
-                index += 2
-            }
-
-            return samples
-        }
+        return WAVData(data: data, audioDataRange: audioDataRange)
     }
 
     private static func ascii(_ data: Data, _ offset: Int, _ count: Int) -> String {
@@ -323,7 +466,9 @@ private enum WAVPCM16Loader {
 
 private enum TranscriberError: LocalizedError {
     case invalidDeepgramKey
+    case invalidAssemblyAiKey
     case deepgramAPI(String)
+    case assemblyAIAPI(String)
     case missingConfiguredModel(String)
     case missingBundledModel
     case failedToLoadModel(String)
@@ -335,8 +480,12 @@ private enum TranscriberError: LocalizedError {
         switch self {
         case .invalidDeepgramKey:
             return "Invalid Deepgram API key. Set it in Settings or ~/.config/my-whisper/config.json."
+        case .invalidAssemblyAiKey:
+            return "Invalid AssemblyAI API key. Set it in Settings or ~/.config/my-whisper/config.json."
         case .deepgramAPI(let message):
             return "Deepgram API error: \(message)"
+        case .assemblyAIAPI(let message):
+            return "AssemblyAI API error: \(message)"
         case .missingConfiguredModel(let path):
             return "Whisper model not found at \(path)."
         case .missingBundledModel:

@@ -126,6 +126,10 @@ QVector<float> AudioRecorder::audioLevels() const {
     return m_audioLevels;
 }
 
+QAudioFormat AudioRecorder::audioFormat() const {
+    return m_format;
+}
+
 QString AudioRecorder::preferredInputDeviceId() const {
     return m_preferredInputDeviceId;
 }
@@ -247,6 +251,7 @@ void AudioRecorder::handleReadyRead() {
 
     m_outputFile->write(data);
     m_dataBytes += static_cast<quint32>(data.size());
+    emit audioChunkCaptured(data);
 
     const float level = peakLevelForBuffer(data, m_format);
     if (!m_audioLevels.isEmpty()) {

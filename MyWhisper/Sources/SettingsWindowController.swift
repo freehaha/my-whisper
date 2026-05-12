@@ -7,7 +7,7 @@ class SettingsWindowController: NSWindowController {
 
     init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 760),
+            contentRect: NSRect(x: 0, y: 0, width: 560, height: 840),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -43,6 +43,8 @@ private enum CaptureTarget {
 struct SettingsView: View {
     @State private var transcriptionBackend: TranscriptionBackend
     @State private var deepgramApiKey: String
+    @State private var assemblyAiApiKey: String
+    @State private var assemblyAiSpeechModel: String
     @State private var whisperModelPath: String
     @State private var whisperLanguage: String
     @State private var whisperUseGPU: Bool
@@ -61,6 +63,8 @@ struct SettingsView: View {
     init(initialConfig: Config) {
         _transcriptionBackend = State(initialValue: initialConfig.transcriptionBackend)
         _deepgramApiKey = State(initialValue: initialConfig.deepgramApiKey)
+        _assemblyAiApiKey = State(initialValue: initialConfig.assemblyAiApiKey)
+        _assemblyAiSpeechModel = State(initialValue: initialConfig.normalizedAssemblyAiSpeechModel)
         _whisperModelPath = State(initialValue: initialConfig.normalizedWhisperModelPath ?? "")
         _whisperLanguage = State(initialValue: initialConfig.normalizedWhisperLanguage)
         _whisperUseGPU = State(initialValue: initialConfig.whisperUseGPU)
@@ -71,6 +75,17 @@ struct SettingsView: View {
         _toggleHotkey = State(initialValue: initialConfig.toggleHotkey)
         _abortHotkey = State(initialValue: initialConfig.abortHotkey)
         _historyHotkey = State(initialValue: initialConfig.historyHotkey)
+    }
+
+    private var backendDescription: String {
+        switch transcriptionBackend {
+        case .deepgram:
+            return "Cloud transcription via Deepgram API after recording stops."
+        case .assemblyAI:
+            return "Cloud transcription via AssemblyAI streaming for faster turn-around."
+        case .localWhisper:
+            return "On-device transcription via whisper.cpp XCFramework."
+        }
     }
 
     var body: some View {
@@ -85,7 +100,7 @@ struct SettingsView: View {
                         }
                         .pickerStyle(.segmented)
 
-                        Text(transcriptionBackend == .deepgram ? "Cloud transcription via Deepgram API." : "On-device transcription via whisper.cpp XCFramework.")
+                        Text(backendDescription)
                             .font(.footnote)
                             .foregroundColor(.secondary)
                     }
@@ -107,6 +122,29 @@ struct SettingsView: View {
                                 placeholder: "One keyterm/phrase per line. Example:\nAcmeCloud\nMyWhisper\nGPU",
                                 footnote: "Sent as Deepgram keyterms to bias recognition toward product names and jargon."
                             )
+                        }
+                        .padding(.top, 6)
+                    }
+                } else if transcriptionBackend == .assemblyAI {
+                    GroupBox("AssemblyAI Streaming") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("AssemblyAI API key")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                SecureField("YOUR_ASSEMBLYAI_API_KEY", text: $assemblyAiApiKey)
+                            }
+
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Speech model")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                TextField("u3-rt-pro", text: $assemblyAiSpeechModel)
+                                    .textFieldStyle(.roundedBorder)
+                                Text("Default: u3-rt-pro")
+                                    .font(.footnote)
+                                    .foregroundColor(.secondary)
+                            }
                         }
                         .padding(.top, 6)
                     }
@@ -211,7 +249,7 @@ struct SettingsView: View {
             }
             .padding(18)
         }
-        .frame(width: 560, height: 760)
+        .frame(width: 560, height: 840)
         .onAppear {
             installKeyboardMonitor()
         }
@@ -326,6 +364,8 @@ struct SettingsView: View {
             var config = Config.load()
             config.transcriptionBackend = transcriptionBackend
             config.deepgramApiKey = deepgramApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            config.assemblyAiApiKey = assemblyAiApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            config.assemblyAiSpeechModel = Config.normalizeAssemblyAiSpeechModel(assemblyAiSpeechModel)
             config.whisperModelPath = Config.normalizeOptionalPath(whisperModelPath)
             config.whisperLanguage = Config.normalizeLanguage(whisperLanguage)
             config.whisperUseGPU = whisperUseGPU

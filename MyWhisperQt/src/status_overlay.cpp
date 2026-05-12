@@ -18,6 +18,13 @@ StatusOverlay::StatusOverlay(QWidget *parent)
 void StatusOverlay::setState(AppState state, const QString &errorMessage) {
     m_state = state;
     m_errorMessage = errorMessage;
+
+    if (m_state == AppState::Error) {
+        setFixedSize(560, 190);
+    } else {
+        setFixedSize(280, 76);
+    }
+
     update();
 }
 
@@ -45,9 +52,9 @@ void StatusOverlay::paintEvent(QPaintEvent *event) {
     const QRect contentRect = rect().adjusted(20, 16, -20, -16);
     const QRect singleLineIconRect(contentRect.left(), contentRect.top(), 36, contentRect.height());
     const QRect singleLineTextRect(contentRect.left() + 52, contentRect.top(), contentRect.width() - 52, contentRect.height());
-    const QRect errorIconRect(contentRect.left(), contentRect.top(), 36, 24);
-    const QRect errorTitleRect(contentRect.left() + 52, contentRect.top(), contentRect.width() - 52, 24);
-    const QRect errorMessageRect(contentRect.left() + 52, contentRect.top() + 24, contentRect.width() - 52, contentRect.height() - 24);
+    const QRect errorIconRect(contentRect.left(), contentRect.top(), 36, 30);
+    const QRect errorTitleRect(contentRect.left() + 52, contentRect.top(), contentRect.width() - 52, 30);
+    const QRect errorMessageRect(contentRect.left() + 52, contentRect.top() + 36, contentRect.width() - 52, contentRect.height() - 36);
 
     if (m_state == AppState::Recording) {
         painter.setBrush(QColor(220, 53, 69));
@@ -116,8 +123,9 @@ void StatusOverlay::paintEvent(QPaintEvent *event) {
         messageFont.setBold(false);
         painter.setFont(messageFont);
         painter.setPen(QColor(230, 230, 230));
-        painter.drawText(errorMessageRect, Qt::AlignLeft | Qt::TextWordWrap,
-                         QFontMetrics(messageFont).elidedText(m_errorMessage, Qt::ElideRight, errorMessageRect.width() * 2));
+        painter.drawText(errorMessageRect,
+                         Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
+                         m_errorMessage);
     }
 }
 

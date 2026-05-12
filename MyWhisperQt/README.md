@@ -10,7 +10,7 @@ Qt 6 port of the `MyWhisper/` Swift menu bar app.
   - Linux X11 via XGrabKey
 - Audio recording via Qt Multimedia
 - Selectable audio input device (system default or specific source)
-- Deepgram transcription
+- Selectable Deepgram upload transcription or AssemblyAI streaming transcription
 - Deepgram keyterm biasing via Settings (one keyterm/phrase per line)
 - Optional text refinement via OpenAI or local llama.cpp
 - Floating status overlay
@@ -24,8 +24,11 @@ Config file: `~/.config/my-whisper/config.json`
 
 Common keys:
 
+- `transcriptionBackend`: `deepgram` or `assemblyai`
 - `deepgramApiKey`: Deepgram API key
 - `deepgramKeywords`: array of keyterms/phrases for Deepgram biasing
+- `assemblyAiApiKey`: AssemblyAI API key
+- `assemblyAiSpeechModel`: AssemblyAI streaming speech model (default `u3-rt-pro`)
 - `enableRefinement`: enable post-transcription text refinement
 - `refinementProvider`: `openai` or `llama_cpp`
 - `refinementPrompt`: instruction sent to refinement backend
@@ -47,8 +50,11 @@ Example:
 
 ```json
 {
+  "transcriptionBackend": "assemblyai",
   "deepgramApiKey": "YOUR_DEEPGRAM_API_KEY",
   "deepgramKeywords": ["AcmeCloud", "MyWhisper", "GPU"],
+  "assemblyAiApiKey": "YOUR_ASSEMBLYAI_API_KEY",
+  "assemblyAiSpeechModel": "u3-rt-pro",
   "openaiApiKey": null,
   "enableRefinement": true,
   "refinementProvider": "llama_cpp",
@@ -125,6 +131,7 @@ QT_QPA_PLATFORM=xcb ./build/MyWhisperQt --verbose
 - Audio cues use a bundled short ding sound instead of relying on the desktop/system beep.
 - The Settings dialog includes an audio input dropdown backed by Qt Multimedia (PulseAudio/PipeWire on most Linux desktops), with a “System default” option.
 - Deepgram keyterm hints can be configured in Settings and are sent as repeated `keyterm` query params on transcription requests for Nova-3.
+- AssemblyAI streaming sends raw mono 16-bit PCM microphone chunks during recording, then finalizes with `Terminate` when recording stops.
 - Default Linux hotkeys are `Ctrl+Alt+R`, `Ctrl+Alt+X`, and `Ctrl+Alt+H`.
 - You need the Qt 6 development packages plus X11/XTest development libraries.
 

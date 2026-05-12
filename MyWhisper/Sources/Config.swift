@@ -24,6 +24,7 @@ struct HotkeyBinding: Codable, Equatable {
 enum TranscriptionBackend: String, Codable, CaseIterable, Identifiable {
     case localWhisper = "localWhisper"
     case deepgram = "deepgram"
+    case assemblyAI = "assemblyai"
 
     var id: String { rawValue }
 
@@ -33,6 +34,8 @@ enum TranscriptionBackend: String, Codable, CaseIterable, Identifiable {
             return "Local Whisper"
         case .deepgram:
             return "Deepgram"
+        case .assemblyAI:
+            return "AssemblyAI Streaming"
         }
     }
 }
@@ -44,6 +47,8 @@ struct Config: Codable {
     var transcriptionBackend: TranscriptionBackend
     var deepgramApiKey: String
     var deepgramKeywords: [String]
+    var assemblyAiApiKey: String
+    var assemblyAiSpeechModel: String
     var whisperModelPath: String?
     var whisperLanguage: String
     var whisperUseGPU: Bool
@@ -58,6 +63,8 @@ struct Config: Codable {
         transcriptionBackend: TranscriptionBackend = .localWhisper,
         deepgramApiKey: String = "",
         deepgramKeywords: [String] = [],
+        assemblyAiApiKey: String = "",
+        assemblyAiSpeechModel: String = "u3-rt-pro",
         whisperModelPath: String? = nil,
         whisperLanguage: String = Self.defaultWhisperLanguage,
         whisperUseGPU: Bool = true,
@@ -71,6 +78,8 @@ struct Config: Codable {
         self.transcriptionBackend = transcriptionBackend
         self.deepgramApiKey = deepgramApiKey
         self.deepgramKeywords = Self.normalizeKeywords(deepgramKeywords)
+        self.assemblyAiApiKey = assemblyAiApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.assemblyAiSpeechModel = Self.normalizeAssemblyAiSpeechModel(assemblyAiSpeechModel)
         self.whisperModelPath = Self.normalizeOptionalPath(whisperModelPath)
         self.whisperLanguage = Self.normalizeLanguage(whisperLanguage)
         self.whisperUseGPU = whisperUseGPU
@@ -86,6 +95,8 @@ struct Config: Codable {
         case transcriptionBackend
         case deepgramApiKey
         case deepgramKeywords
+        case assemblyAiApiKey
+        case assemblyAiSpeechModel
         case whisperModelPath
         case whisperLanguage
         case whisperUseGPU
@@ -109,8 +120,12 @@ struct Config: Codable {
             deepgramKeywords = []
         }
 
-        if let decodedBackend = try container.decodeIfPresent(TranscriptionBackend.self, forKey: .transcriptionBackend) {
-            transcriptionBackend = decodedBackend
+        assemblyAiApiKey = (try container.decodeIfPresent(String.self, forKey: .assemblyAiApiKey) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        assemblyAiSpeechModel = Self.normalizeAssemblyAiSpeechModel(try container.decodeIfPresent(String.self, forKey: .assemblyAiSpeechModel) ?? "u3-rt-pro")
+
+        if let backendRawValue = try container.decodeIfPresent(String.self, forKey: .transcriptionBackend) {
+            transcriptionBackend = Self.decodeTranscriptionBackend(backendRawValue)
         } else {
             let trimmedKey = deepgramApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
             transcriptionBackend = (!trimmedKey.isEmpty && trimmedKey != "YOUR_DEEPGRAM_API_KEY") ? .deepgram : .localWhisper
@@ -158,6 +173,22 @@ struct Config: Codable {
         return trimmed.isEmpty ? defaultWhisperLanguage : trimmed
     }
 
+    static func normalizeAssemblyAiSpeechModel(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "u3-rt-pro" : trimmed
+    }
+
+    static func decodeTranscriptionBackend(_ value: String) -> TranscriptionBackend {
+        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if normalized == "assemblyai" || normalized == "assembly_ai" || normalized == "assembly-ai" {
+            return .assemblyAI
+        }
+        if normalized == "deepgram" {
+            return .deepgram
+        }
+        return .localWhisper
+    }
+
     var normalizedWhisperModelPath: String? {
         Self.normalizeOptionalPath(whisperModelPath)
     }
@@ -171,9 +202,18 @@ struct Config: Codable {
         return normalized.caseInsensitiveCompare("auto") == .orderedSame ? nil : normalized
     }
 
+    var normalizedAssemblyAiSpeechModel: String {
+        Self.normalizeAssemblyAiSpeechModel(assemblyAiSpeechModel)
+    }
+
     var hasValidDeepgramKey: Bool {
         let key = deepgramApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         return !key.isEmpty && key != "YOUR_DEEPGRAM_API_KEY"
+    }
+
+    var hasValidAssemblyAiKey: Bool {
+        let key = assemblyAiApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !key.isEmpty && key != "YOUR_ASSEMBLYAI_API_KEY"
     }
 
     var hasUsableRefiner: Bool {
@@ -197,6 +237,8 @@ struct Config: Codable {
             transcriptionBackend: .localWhisper,
             deepgramApiKey: "",
             deepgramKeywords: [],
+            assemblyAiApiKey: "",
+            assemblyAiSpeechModel: "u3-rt-pro",
             whisperModelPath: nil,
             whisperLanguage: Self.defaultWhisperLanguage,
             whisperUseGPU: true,

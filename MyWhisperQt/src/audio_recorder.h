@@ -3,6 +3,7 @@
 #include "types.h"
 
 #include <QAudioFormat>
+#include <QByteArray>
 #include <QObject>
 #include <QString>
 
@@ -21,6 +22,7 @@ public:
     bool isRecording() const;
     QString audioFilePath() const;
     QVector<float> audioLevels() const;
+    QAudioFormat audioFormat() const;
     QString preferredInputDeviceId() const;
 
     void setPreferredInputDeviceId(const QString &deviceId);
@@ -32,6 +34,7 @@ public slots:
 
 signals:
     void audioLevelsChanged(const QVector<float> &levels);
+    void audioChunkCaptured(const QByteArray &data);
     void recordingChanged(bool recording);
     void errorOccurred(const QString &message);
 

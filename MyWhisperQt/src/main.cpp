@@ -37,6 +37,7 @@ int main(int argc, char *argv[]) {
         loggingRules += QStringLiteral(
             "mywhisper.transcriber.debug=true\n"
             "mywhisper.transcriber.info=true\n"
+            "mywhisper.deepgram_transcriber.debug=true\n"
             "mywhisper.llm_refiner.debug=true\n"
         );
     }

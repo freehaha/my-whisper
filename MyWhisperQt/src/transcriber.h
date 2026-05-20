@@ -7,8 +7,8 @@
 #include <QObject>
 #include <QStringList>
 
-class AssemblyAIWebSocket;
-class QNetworkAccessManager;
+class AssemblyAiWebSocketClient;
+class DeepgramTranscriber;
 
 class Transcriber : public QObject {
     Q_OBJECT
@@ -37,9 +37,9 @@ private:
     void emitStreamingResult();
     QString assembledStreamingTranscript() const;
 
-    QNetworkAccessManager *m_networkManager = nullptr;
+    DeepgramTranscriber *m_deepgramTranscriber = nullptr;
 
-    AssemblyAIWebSocket *m_streamingSocket = nullptr;
+    AssemblyAiWebSocketClient *m_streamingSocket = nullptr;
     QByteArray m_streamingAudioBuffer;
     QStringList m_finalStreamingTurns;
     QString m_latestStreamingPartial;

@@ -38,6 +38,7 @@ int main(int argc, char *argv[]) {
             "mywhisper.transcriber.debug=true\n"
             "mywhisper.transcriber.info=true\n"
             "mywhisper.deepgram_transcriber.debug=true\n"
+            "mywhisper.assembly_ai_streaming_transcriber.debug=true\n"
             "mywhisper.llm_refiner.debug=true\n"
         );
     }

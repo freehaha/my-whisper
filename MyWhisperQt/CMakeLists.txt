@@ -23,6 +23,7 @@ qt_standard_project_setup()
 set(MYWHISPER_QT_SOURCES
     src/main.cpp
     src/app_controller.cpp
+    src/assembly_ai_streaming_transcriber.cpp
     src/assembly_ai_websocket_client.cpp
     src/audio_recorder.cpp
     src/config.cpp
@@ -54,6 +55,7 @@ qt_add_executable(MyWhisperQt
     ${MYWHISPER_QT_SOURCES}
     resources/resources.qrc
     src/app_controller.h
+    src/assembly_ai_streaming_transcriber.h
     src/assembly_ai_websocket_client.h
     src/audio_recorder.h
     src/config.h

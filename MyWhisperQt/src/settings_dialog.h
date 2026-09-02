@@ -65,6 +65,7 @@ private:
     QLineEdit *m_openAiApiKeyEdit = nullptr;
     QLineEdit *m_llamaCppModelPathEdit = nullptr;
     QPushButton *m_llamaCppModelBrowseButton = nullptr;
+    QLineEdit *m_llamaCppServerArgsEdit = nullptr;
     QPlainTextEdit *m_refinementPromptEdit = nullptr;
     QCheckBox *m_showDoneScreenCheck = nullptr;
     QComboBox *m_audioInputCombo = nullptr;

@@ -126,12 +126,12 @@ struct AppConfig {
     QString assemblyAiApiKey;
     QString assemblyAiSpeechModel = QStringLiteral("u3-rt-pro");
     QString openaiApiKey;
-    bool enableRefinement = false;
-    QString refinementProvider = QStringLiteral("openai");
+    bool enableRefinement = true;
+    QString refinementProvider = QStringLiteral("llama_cpp");
     QString refinementPrompt;
     QString llamaCppBinaryPath;
-    QString llamaCppAdditionalArgs;
-    QString llamaCppModelPath;
+    QString llamaCppAdditionalArgs = QStringLiteral("--jinja --chat-template-kwargs '{\"enable_thinking\":false}' --temp 0");
+    QString llamaCppModelPath = QStringLiteral("/fast/models/s1-mini-q4_k_m.gguf");
     QString audioInputDeviceId;
     HotkeyBinding toggleHotkey = HotkeyBinding::defaultToggle();
     HotkeyBinding abortHotkey = HotkeyBinding::defaultAbort();

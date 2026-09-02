@@ -31,7 +31,7 @@ Common keys:
 - `assemblyAiSpeechModel`: AssemblyAI streaming speech model (default `u3-rt-pro`)
 - `enableRefinement`: enable post-transcription text refinement
 - `refinementProvider`: `openai` or `llama_cpp`
-- `refinementPrompt`: instruction sent to refinement backend
+- `refinementPrompt`: instruction sent to the OpenAI refinement backend
 - `audioInputDeviceId`: optional selected audio device id; empty/null = system default
 - `toggleHotkey`, `abortHotkey`, `historyHotkey`: hotkey objects with `keyCode` and `modifiers`
 - `showDoneScreen`: show temporary Done overlay after success
@@ -44,7 +44,7 @@ llama.cpp refinement keys:
 
 - `llamaCppModelPath`: required when `refinementProvider` = `llama_cpp`; path to GGUF model
 - `llamaCppBinaryPath`: optional explicit path to compiled `llama-server`; if empty, app searches `PATH`
-- `llamaCppAdditionalArgs`: optional raw CLI args appended to llama.cpp invocation
+- `llamaCppAdditionalArgs`: raw model-specific server arguments appended to the llama.cpp invocation
 
 Example:
 
@@ -61,7 +61,7 @@ Example:
   "refinementPrompt": "Fix spelling and grammar. Return only the fixed text.",
   "llamaCppBinaryPath": "/home/you/llama.cpp/build/bin/llama-server",
   "llamaCppAdditionalArgs": "--ctx-size 4096 --threads 8 --gpu-layers 999",
-  "llamaCppModelPath": "/home/you/models/model.gguf",
+  "llamaCppModelPath": "/fast/models/s1-mini-q4_k_m.gguf",
   "audioInputDeviceId": null,
   "toggleHotkey": { "keyCode": 15, "modifiers": 6144 },
   "abortHotkey": { "keyCode": 7, "modifiers": 6144 },
@@ -72,9 +72,11 @@ Example:
 
 Notes:
 
-- `llamaCppAdditionalArgs` parsed with `QProcess::splitCommand()`.
-- If same llama.cpp flag appears in both built-in args and `llamaCppAdditionalArgs`, llama.cpp decides which value wins.
-- Settings UI currently exposes backend selection and model path; binary path and additional args are config-file-only.
+- `llamaCppAdditionalArgs` is parsed with `QProcess::splitCommand()` and can be edited as one field in Settings.
+- Its s1-mini default is `--jinja --chat-template-kwargs '{"enable_thinking":false}' --temp 0`.
+- Inference parameters such as temperature come from these server arguments rather than being fixed in each HTTP request.
+- s1-mini receives the control line `[Styling: semi-formal] [Structure: prose] [Context: general]` before every transcript.
+- The binary path remains config-file-only.
 
 ## Build
 

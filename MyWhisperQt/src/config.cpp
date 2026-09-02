@@ -81,12 +81,12 @@ AppConfig Config::defaultConfig() {
     config.assemblyAiApiKey = "YOUR_ASSEMBLYAI_API_KEY";
     config.assemblyAiSpeechModel = QStringLiteral("u3-rt-pro");
     config.openaiApiKey.clear();
-    config.enableRefinement = false;
-    config.refinementProvider = QStringLiteral("openai");
+    config.enableRefinement = true;
+    config.refinementProvider = QStringLiteral("llama_cpp");
     config.refinementPrompt = "Fix spelling and grammar. Return only the fixed text.";
     config.llamaCppBinaryPath.clear();
-    config.llamaCppAdditionalArgs.clear();
-    config.llamaCppModelPath.clear();
+    config.llamaCppAdditionalArgs = QStringLiteral("--jinja --chat-template-kwargs '{\"enable_thinking\":false}' --temp 0");
+    config.llamaCppModelPath = QStringLiteral("/fast/models/s1-mini-q4_k_m.gguf");
     config.audioInputDeviceId.clear();
     config.toggleHotkey = HotkeyBinding::defaultToggle();
     config.abortHotkey = HotkeyBinding::defaultAbort();
@@ -166,7 +166,7 @@ bool Config::save(const AppConfig &config, QString *errorMessage) {
     object["refinementProvider"] = config.refinementProvider;
     object["refinementPrompt"] = config.refinementPrompt;
     object["llamaCppBinaryPath"] = config.llamaCppBinaryPath.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(config.llamaCppBinaryPath);
-    object["llamaCppAdditionalArgs"] = config.llamaCppAdditionalArgs.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(config.llamaCppAdditionalArgs);
+    object["llamaCppAdditionalArgs"] = config.llamaCppAdditionalArgs;
     object["llamaCppModelPath"] = config.llamaCppModelPath.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(config.llamaCppModelPath);
     object["audioInputDeviceId"] = config.audioInputDeviceId.isEmpty() ? QJsonValue(QJsonValue::Null) : QJsonValue(config.audioInputDeviceId);
     object["toggleHotkey"] = hotkeyToJson(config.toggleHotkey);

@@ -24,6 +24,10 @@ constexpr int kLlamaServerPort = 18765;
 constexpr int kLlamaServerIdleMs = 120000;
 constexpr int kLlamaServerProbeIntervalMs = 500;
 constexpr int kLlamaServerProbeMaxAttempts = 40;
+constexpr auto kTranscriptNormalizerPrompt =
+    "You are a text normalizer for speech-to-text transcripts. The input begins with a control line specifying the styling, structure, and context settings; clean the transcript to match those settings and output only the cleaned text.";
+constexpr auto kTranscriptControlLine =
+    "[Styling: semi-formal] [Structure: prose] [Context: general]";
 
 QString effectivePrompt(const AppConfig &config) {
     return config.refinementPrompt.isEmpty()
@@ -377,22 +381,18 @@ void LLMRefiner::flushPendingLlamaRequests() {
         request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
 
         QJsonObject body;
-        body["temperature"] = 1.0f;
-        body["max_tokens"] = 2048;
-        body["top_p"] = 0.95;
-        body["top_k"] = 64;
-        body["max_tokens"] = 2048;
         body["stream"] = false;
 
         QJsonArray messages;
         QJsonObject systemMessage;
         systemMessage["role"] = QStringLiteral("system");
-        systemMessage["content"] = effectivePrompt(requestData.config);
+        systemMessage["content"] = QString::fromUtf8(kTranscriptNormalizerPrompt);
         messages.append(systemMessage);
 
         QJsonObject userMessage;
         userMessage["role"] = QStringLiteral("user");
-        userMessage["content"] = QStringLiteral("<text>") + requestData.text + QStringLiteral("</text>");
+        userMessage["content"] = QString::fromUtf8(kTranscriptControlLine)
+            + QLatin1Char('\n') + requestData.text;
         messages.append(userMessage);
         body["messages"] = messages;
 

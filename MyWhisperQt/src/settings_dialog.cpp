@@ -68,6 +68,8 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     llamaModelLayout->setContentsMargins(0, 0, 0, 0);
     llamaModelLayout->addWidget(m_llamaCppModelPathEdit, 1);
     llamaModelLayout->addWidget(m_llamaCppModelBrowseButton);
+    m_llamaCppServerArgsEdit = new QLineEdit(apiGroup);
+    m_llamaCppServerArgsEdit->setPlaceholderText(tr("--jinja --chat-template-kwargs '{\"enable_thinking\":false}' --temp 0"));
     m_refinementPromptEdit = new QPlainTextEdit(apiGroup);
     m_refinementPromptEdit->setPlaceholderText(tr("Fix spelling and grammar. Return only the fixed text."));
     m_refinementPromptEdit->setFixedHeight(90);
@@ -81,7 +83,8 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     apiLayout->addRow(tr("Refinement backend"), m_refinementProviderCombo);
     apiLayout->addRow(tr("OpenAI API key"), m_openAiApiKeyEdit);
     apiLayout->addRow(tr("llama.cpp model"), llamaModelRow);
-    apiLayout->addRow(tr("Refinement prompt"), m_refinementPromptEdit);
+    apiLayout->addRow(tr("llama.cpp server arguments"), m_llamaCppServerArgsEdit);
+    apiLayout->addRow(tr("OpenAI refinement prompt"), m_refinementPromptEdit);
 
     m_mediaDevices = new QMediaDevices(this);
     m_deviceRefreshTimer = new QTimer(this);
@@ -171,6 +174,7 @@ void SettingsDialog::setConfig(const AppConfig &config) {
     m_refinementProviderCombo->setCurrentIndex(providerIndex >= 0 ? providerIndex : 0);
     m_openAiApiKeyEdit->setText(config.openaiApiKey);
     m_llamaCppModelPathEdit->setText(config.llamaCppModelPath);
+    m_llamaCppServerArgsEdit->setText(config.llamaCppAdditionalArgs);
     m_refinementPromptEdit->setPlainText(config.refinementPrompt);
     m_showDoneScreenCheck->setChecked(config.showDoneScreen);
     populateAudioInputDevices(config.audioInputDeviceId);
@@ -242,6 +246,7 @@ void SettingsDialog::saveSettings() {
     updated.refinementProvider = m_refinementProviderCombo->currentData().toString().trimmed();
     updated.openaiApiKey = m_openAiApiKeyEdit->text().trimmed();
     updated.llamaCppModelPath = m_llamaCppModelPathEdit->text().trimmed();
+    updated.llamaCppAdditionalArgs = m_llamaCppServerArgsEdit->text().trimmed();
     updated.refinementPrompt = m_refinementPromptEdit->toPlainText().trimmed();
     updated.showDoneScreen = m_showDoneScreenCheck->isChecked();
     updated.audioInputDeviceId = m_audioInputCombo->currentData().toString().trimmed();
@@ -299,7 +304,8 @@ void SettingsDialog::syncRefinementState() {
     m_openAiApiKeyEdit->setEnabled(useOpenAi);
     m_llamaCppModelPathEdit->setEnabled(useLlamaCpp);
     m_llamaCppModelBrowseButton->setEnabled(useLlamaCpp);
-    m_refinementPromptEdit->setEnabled(enabled);
+    m_llamaCppServerArgsEdit->setEnabled(useLlamaCpp);
+    m_refinementPromptEdit->setEnabled(useOpenAi);
 }
 
 void SettingsDialog::browseLlamaCppModel() {

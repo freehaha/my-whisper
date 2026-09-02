@@ -8,4 +8,16 @@ if [ ! -x "$APP_BIN" ]; then
     "${ROOT_DIR}/build-qt.sh"
 fi
 
-QT_QPA_PLATFORM=xcb "$APP_BIN" "$@"
+# Disable core dumps.
+ulimit -c 0
+
+# Restart app automatically if it crashes/exits with non-zero status.
+while true; do
+    if QT_QPA_PLATFORM=xcb "$APP_BIN" "$@"; then
+        exit 0
+    fi
+
+    status=$?
+    echo "MyWhisperQt exited with status ${status}; restarting in 1s..." >&2
+    sleep 1
+done

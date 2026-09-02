@@ -44,9 +44,7 @@ AppController::AppController(std::optional<bool> overrideShowDoneScreen, QObject
 
     connect(m_recorder, &AudioRecorder::audioLevelsChanged, m_statusOverlay, &StatusOverlay::setAudioLevels);
     connect(m_recorder, &AudioRecorder::audioChunkCaptured, this, [this](const QByteArray &data) {
-        if (Config::usesAssemblyAi(m_config)) {
-            m_transcriber->streamAudio(data);
-        }
+        m_transcriber->streamAudio(data);
     });
     connect(m_recorder, &AudioRecorder::errorOccurred, this, &AppController::handleRecorderError);
     connect(m_transcriber, &Transcriber::transcriptionReady, this, &AppController::handleTranscriptionReady);
@@ -219,8 +217,13 @@ QIcon AppController::createTrayAppIcon() const {
 void AppController::startRecording() {
     m_resetTimer->stop();
 
-    if (Config::usesAssemblyAi(m_config) && !Config::hasValidAssemblyAiKey(m_config)) {
-        handleProcessingError(tr("Invalid AssemblyAI API key. Set it in %1").arg(Config::configPath()));
+    if (Config::usesAssemblyAi(m_config)) {
+        if (!Config::hasValidAssemblyAiKey(m_config)) {
+            handleProcessingError(tr("Invalid AssemblyAI API key. Set it in %1").arg(Config::configPath()));
+            return;
+        }
+    } else if (!Config::hasValidDeepgramKey(m_config)) {
+        handleProcessingError(tr("Invalid Deepgram API key. Set it in %1").arg(Config::configPath()));
         return;
     }
 
@@ -233,9 +236,7 @@ void AppController::startRecording() {
     }
 
     m_pendingAudioFile = m_recorder->audioFilePath();
-    if (Config::usesAssemblyAi(m_config)) {
-        m_transcriber->startStreaming(m_config, m_recorder->audioFormat());
-    }
+    m_transcriber->startStreaming(m_config, m_recorder->audioFormat());
 }
 
 void AppController::stopAndProcess() {
@@ -251,7 +252,7 @@ void AppController::stopAndProcess() {
     m_pendingAudioFile = path;
     setState(AppState::Transcribing);
 
-    if (Config::usesAssemblyAi(m_config)) {
+    if (m_transcriber->isStreaming()) {
         m_transcriber->finishStreaming();
         return;
     }

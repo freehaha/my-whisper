@@ -27,7 +27,9 @@ set(MYWHISPER_QT_SOURCES
     src/assembly_ai_websocket_client.cpp
     src/audio_recorder.cpp
     src/config.cpp
+    src/deepgram_streaming_transcriber.cpp
     src/deepgram_transcriber.cpp
+    src/deepgram_websocket_client.cpp
     src/global_hotkey_manager.cpp
     src/history_dialog.cpp
     src/hotkey_formatter.cpp
@@ -59,7 +61,9 @@ qt_add_executable(MyWhisperQt
     src/assembly_ai_websocket_client.h
     src/audio_recorder.h
     src/config.h
+    src/deepgram_streaming_transcriber.h
     src/deepgram_transcriber.h
+    src/deepgram_websocket_client.h
     src/global_hotkey_manager.h
     src/history_dialog.h
     src/hotkey_formatter.h

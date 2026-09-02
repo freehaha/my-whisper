@@ -7,6 +7,7 @@
 #include <QObject>
 
 class AssemblyAiStreamingTranscriber;
+class DeepgramStreamingTranscriber;
 class DeepgramTranscriber;
 
 class Transcriber : public QObject {
@@ -30,5 +31,6 @@ signals:
 
 private:
     DeepgramTranscriber *m_deepgramTranscriber = nullptr;
+    DeepgramStreamingTranscriber *m_deepgramStreamingTranscriber = nullptr;
     AssemblyAiStreamingTranscriber *m_assemblyAiTranscriber = nullptr;
 };

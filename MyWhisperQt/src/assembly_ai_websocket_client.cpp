@@ -71,7 +71,7 @@ void AssemblyAiWebSocketClient::connectToAssemblyAI(const QString &apiKey, const
     m_fragmentOpcode = 0;
     m_apiKey = apiKey.trimmed();
 
-    const QString normalizedSpeechModel = speechModel.trimmed().isEmpty() ? QStringLiteral("u3-rt-pro") : speechModel.trimmed();
+    const QString normalizedSpeechModel = speechModel.trimmed().isEmpty() ? QStringLiteral("universal-3-5-pro") : speechModel.trimmed();
     QUrlQuery query;
     query.addQueryItem(QStringLiteral("speech_model"), normalizedSpeechModel);
     query.addQueryItem(QStringLiteral("sample_rate"), QString::number(sampleRate));

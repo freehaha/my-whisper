@@ -72,7 +72,7 @@ Example:
 
 Notes:
 
-- `llamaCppAdditionalArgs` is parsed with `QProcess::splitCommand()` and can be edited as one field in Settings.
+- `llamaCppAdditionalArgs` supports shell-style single quotes, double quotes, and backslash escaping, and can be edited as one field in Settings.
 - Its s1-mini default is `--jinja --chat-template-kwargs '{"enable_thinking":false}' --temp 0`.
 - Inference parameters such as temperature come from these server arguments rather than being fixed in each HTTP request.
 - s1-mini receives the control line `[Styling: semi-formal] [Structure: prose] [Context: general]` before every transcript.

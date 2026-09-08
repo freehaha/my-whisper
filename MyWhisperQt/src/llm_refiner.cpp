@@ -42,6 +42,79 @@ QString resolveLlamaExecutable(const AppConfig &config) {
     }
     return executable;
 }
+
+bool splitAdditionalArguments(const QString &command, QStringList *arguments, QString *error) {
+    enum class QuoteMode { None, Single, Double };
+
+    arguments->clear();
+    QString argument;
+    QuoteMode quoteMode = QuoteMode::None;
+    bool argumentStarted = false;
+    bool escaped = false;
+
+    for (const QChar character : command) {
+        if (escaped) {
+            argument.append(character);
+            argumentStarted = true;
+            escaped = false;
+            continue;
+        }
+
+        if (quoteMode == QuoteMode::Single) {
+            if (character == QLatin1Char('\'')) {
+                quoteMode = QuoteMode::None;
+            } else {
+                argument.append(character);
+            }
+            continue;
+        }
+
+        if (character == QLatin1Char('\\')) {
+            escaped = true;
+            argumentStarted = true;
+            continue;
+        }
+
+        if (quoteMode == QuoteMode::Double) {
+            if (character == QLatin1Char('"')) {
+                quoteMode = QuoteMode::None;
+            } else {
+                argument.append(character);
+            }
+            continue;
+        }
+
+        if (character == QLatin1Char('\'')) {
+            quoteMode = QuoteMode::Single;
+            argumentStarted = true;
+        } else if (character == QLatin1Char('"')) {
+            quoteMode = QuoteMode::Double;
+            argumentStarted = true;
+        } else if (character.isSpace()) {
+            if (argumentStarted) {
+                arguments->append(argument);
+                argument.clear();
+                argumentStarted = false;
+            }
+        } else {
+            argument.append(character);
+            argumentStarted = true;
+        }
+    }
+
+    if (escaped) {
+        *error = QStringLiteral("trailing escape character");
+        return false;
+    }
+    if (quoteMode != QuoteMode::None) {
+        *error = QStringLiteral("unterminated quoted argument");
+        return false;
+    }
+    if (argumentStarted) {
+        arguments->append(argument);
+    }
+    return true;
+}
 }
 
 LLMRefiner::LLMRefiner(QObject *parent)
@@ -257,7 +330,13 @@ void LLMRefiner::startLlamaServer(const AppConfig &config) {
 
     const QString extraArgs = config.llamaCppAdditionalArgs.trimmed();
     if (!extraArgs.isEmpty()) {
-        const QStringList parsedExtraArgs = QProcess::splitCommand(extraArgs);
+        QStringList parsedExtraArgs;
+        QString parseError;
+        if (!splitAdditionalArguments(extraArgs, &parsedExtraArgs, &parseError)) {
+            qCWarning(lcLlmRefiner) << "Invalid llama.cpp additional arguments:" << parseError;
+            failPendingLlamaRequests(tr("Invalid llama.cpp additional arguments: %1").arg(parseError));
+            return;
+        }
 #ifndef QT_NO_DEBUG_OUTPUT
         qCDebug(lcLlmRefiner) << "llama-server parsed extra args:" << parsedExtraArgs;
 #endif

@@ -121,6 +121,7 @@ struct HotkeyBinding {
 
 struct AppConfig {
     QString transcriptionBackend = QStringLiteral("deepgram");
+    QString grokApiKey;
     QString deepgramApiKey;
     QStringList deepgramKeywords;
     QString assemblyAiApiKey;

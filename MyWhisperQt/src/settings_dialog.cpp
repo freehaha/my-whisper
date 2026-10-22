@@ -45,6 +45,10 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     m_transcriptionBackendCombo = new QComboBox(apiGroup);
     m_transcriptionBackendCombo->addItem(tr("Deepgram (upload after recording)"), QStringLiteral("deepgram"));
     m_transcriptionBackendCombo->addItem(tr("AssemblyAI (streaming)"), QStringLiteral("assemblyai"));
+    m_transcriptionBackendCombo->addItem(tr("Grok Voice Transcribe 2.0 (upload after recording)"), QStringLiteral("grok"));
+    m_grokApiKeyEdit = new QLineEdit(apiGroup);
+    m_grokApiKeyEdit->setEchoMode(QLineEdit::PasswordEchoOnEdit);
+    m_grokApiKeyEdit->setPlaceholderText(tr("xAI API key, or use XAI_API_KEY"));
     m_deepgramApiKeyEdit = new QLineEdit(apiGroup);
     m_deepgramApiKeyEdit->setEchoMode(QLineEdit::PasswordEchoOnEdit);
     m_deepgramKeywordsEdit = new QPlainTextEdit(apiGroup);
@@ -75,6 +79,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     m_refinementPromptEdit->setFixedHeight(90);
 
     apiLayout->addRow(tr("Transcription backend"), m_transcriptionBackendCombo);
+    apiLayout->addRow(tr("xAI API key"), m_grokApiKeyEdit);
     apiLayout->addRow(tr("Deepgram API key"), m_deepgramApiKeyEdit);
     apiLayout->addRow(tr("Deepgram keyterms"), m_deepgramKeywordsEdit);
     apiLayout->addRow(tr("AssemblyAI API key"), m_assemblyAiApiKeyEdit);
@@ -163,7 +168,8 @@ SettingsDialog::~SettingsDialog() {
 
 void SettingsDialog::setConfig(const AppConfig &config) {
     m_config = config;
-    const int transcriptionBackendIndex = m_transcriptionBackendCombo->findData(Config::usesAssemblyAi(config) ? QStringLiteral("assemblyai") : QStringLiteral("deepgram"));
+    const int transcriptionBackendIndex = m_transcriptionBackendCombo->findData(Config::usesGrok(config) ? QStringLiteral("grok") : (Config::usesAssemblyAi(config) ? QStringLiteral("assemblyai") : QStringLiteral("deepgram")));
+    m_grokApiKeyEdit->setText(config.grokApiKey);
     m_transcriptionBackendCombo->setCurrentIndex(transcriptionBackendIndex >= 0 ? transcriptionBackendIndex : 0);
     m_deepgramApiKeyEdit->setText(config.deepgramApiKey);
     m_deepgramKeywordsEdit->setPlainText(config.deepgramKeywords.join('\n'));
@@ -229,6 +235,7 @@ void SettingsDialog::startCaptureHistory() {
 void SettingsDialog::saveSettings() {
     AppConfig updated = m_config;
     updated.transcriptionBackend = m_transcriptionBackendCombo->currentData().toString().trimmed().toLower();
+    updated.grokApiKey = m_grokApiKeyEdit->text().trimmed();
     updated.deepgramApiKey = m_deepgramApiKeyEdit->text().trimmed();
     updated.deepgramKeywords.clear();
     for (const QString &line : m_deepgramKeywordsEdit->toPlainText().split('\n')) {
@@ -288,8 +295,9 @@ void SettingsDialog::syncTranscriptionState() {
     const QString backend = m_transcriptionBackendCombo->currentData().toString();
     const bool useAssemblyAi = backend == QStringLiteral("assemblyai");
 
-    m_deepgramApiKeyEdit->setEnabled(!useAssemblyAi);
-    m_deepgramKeywordsEdit->setEnabled(!useAssemblyAi);
+    m_grokApiKeyEdit->setEnabled(backend == QStringLiteral("grok"));
+    m_deepgramApiKeyEdit->setEnabled(backend == QStringLiteral("deepgram"));
+    m_deepgramKeywordsEdit->setEnabled(backend == QStringLiteral("deepgram"));
     m_assemblyAiApiKeyEdit->setEnabled(useAssemblyAi);
     m_assemblyAiSpeechModelEdit->setEnabled(useAssemblyAi);
 }

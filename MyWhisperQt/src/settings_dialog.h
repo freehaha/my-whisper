@@ -56,6 +56,7 @@ private:
     CaptureTarget m_captureTarget = CaptureTarget::None;
 
     QComboBox *m_transcriptionBackendCombo = nullptr;
+    QLineEdit *m_grokApiKeyEdit = nullptr;
     QLineEdit *m_deepgramApiKeyEdit = nullptr;
     QPlainTextEdit *m_deepgramKeywordsEdit = nullptr;
     QLineEdit *m_assemblyAiApiKeyEdit = nullptr;

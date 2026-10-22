@@ -2,6 +2,7 @@
 
 #include "assembly_ai_streaming_transcriber.h"
 #include "config.h"
+#include "grok_transcriber.h"
 #include "deepgram_streaming_transcriber.h"
 #include "deepgram_transcriber.h"
 
@@ -10,6 +11,9 @@ Transcriber::Transcriber(QObject *parent)
     , m_deepgramTranscriber(new DeepgramTranscriber(this))
     , m_deepgramStreamingTranscriber(new DeepgramStreamingTranscriber(this))
     , m_assemblyAiTranscriber(new AssemblyAiStreamingTranscriber(this)) {
+    m_grokTranscriber = new GrokTranscriber(this);
+    connect(m_grokTranscriber, &GrokTranscriber::transcriptionReady, this, &Transcriber::transcriptionReady);
+    connect(m_grokTranscriber, &GrokTranscriber::errorOccurred, this, &Transcriber::errorOccurred);
     connect(m_deepgramTranscriber, &DeepgramTranscriber::transcriptionReady, this, &Transcriber::transcriptionReady);
     connect(m_deepgramTranscriber, &DeepgramTranscriber::errorOccurred, this, &Transcriber::errorOccurred);
     connect(m_deepgramStreamingTranscriber, &DeepgramStreamingTranscriber::transcriptionReady, this, &Transcriber::transcriptionReady);
@@ -28,10 +32,17 @@ void Transcriber::transcribe(const QString &audioFilePath, const AppConfig &conf
         return;
     }
 
+    if (Config::usesGrok(config)) {
+        m_grokTranscriber->transcribe(audioFilePath, config);
+        return;
+    }
     m_deepgramTranscriber->transcribe(audioFilePath, config);
 }
 
 void Transcriber::startStreaming(const AppConfig &config, const QAudioFormat &format) {
+    if (Config::usesGrok(config)) {
+        return; // Upload the completed WAV after recording stops.
+    }
     if (Config::usesAssemblyAi(config)) {
         m_assemblyAiTranscriber->start(config, format);
         return;

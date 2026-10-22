@@ -12,6 +12,9 @@ public:
     static bool save(const AppConfig &config, QString *errorMessage = nullptr);
 
     static bool usesAssemblyAi(const AppConfig &config);
+    static bool usesGrok(const AppConfig &config);
+    static QString grokApiKey(const AppConfig &config);
+    static bool hasValidGrokKey(const AppConfig &config);
     static bool hasValidDeepgramKey(const AppConfig &config);
     static bool hasValidAssemblyAiKey(const AppConfig &config);
     static bool hasUsableRefiner(const AppConfig &config);

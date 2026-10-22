@@ -222,6 +222,11 @@ void AppController::startRecording() {
             handleProcessingError(tr("Invalid AssemblyAI API key. Set it in %1").arg(Config::configPath()));
             return;
         }
+    } else if (Config::usesGrok(m_config)) {
+        if (!Config::hasValidGrokKey(m_config)) {
+            handleProcessingError(tr("Invalid xAI API key. Set it in Settings or XAI_API_KEY."));
+            return;
+        }
     } else if (!Config::hasValidDeepgramKey(m_config)) {
         handleProcessingError(tr("Invalid Deepgram API key. Set it in %1").arg(Config::configPath()));
         return;

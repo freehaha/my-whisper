@@ -65,6 +65,9 @@ QString normalizedTranscriptionBackend(QString value) {
         || value == QStringLiteral("assembly-ai")) {
         return QStringLiteral("assemblyai");
     }
+    if (value == QStringLiteral("grok") || value == QStringLiteral("xai")) {
+        return QStringLiteral("grok");
+    }
     return QStringLiteral("deepgram");
 }
 }
@@ -116,6 +119,7 @@ AppConfig Config::load() {
     const QJsonObject object = document.object();
     AppConfig config = defaultConfig();
     config.transcriptionBackend = normalizedTranscriptionBackend(object.value("transcriptionBackend").toString(config.transcriptionBackend));
+    config.grokApiKey = object.value("grokApiKey").toString();
     config.deepgramApiKey = object.value("deepgramApiKey").toString(config.deepgramApiKey);
     config.deepgramKeywords = stringListFromJson(object.value("deepgramKeywords"));
     config.assemblyAiApiKey = object.value("assemblyAiApiKey").toString(config.assemblyAiApiKey);
@@ -157,6 +161,7 @@ bool Config::save(const AppConfig &config, QString *errorMessage) {
 
     QJsonObject object;
     object["transcriptionBackend"] = normalizedTranscriptionBackend(config.transcriptionBackend);
+    object["grokApiKey"] = config.grokApiKey;
     object["deepgramApiKey"] = config.deepgramApiKey;
     object["deepgramKeywords"] = stringListToJson(config.deepgramKeywords);
     object["assemblyAiApiKey"] = config.assemblyAiApiKey;
@@ -196,6 +201,20 @@ bool Config::save(const AppConfig &config, QString *errorMessage) {
 
 bool Config::usesAssemblyAi(const AppConfig &config) {
     return normalizedTranscriptionBackend(config.transcriptionBackend) == QStringLiteral("assemblyai");
+}
+
+bool Config::usesGrok(const AppConfig &config) {
+    return normalizedTranscriptionBackend(config.transcriptionBackend) == QStringLiteral("grok");
+}
+
+QString Config::grokApiKey(const AppConfig &config) {
+    return config.grokApiKey.trimmed().isEmpty()
+        ? qEnvironmentVariable("XAI_API_KEY").trimmed() : config.grokApiKey.trimmed();
+}
+
+bool Config::hasValidGrokKey(const AppConfig &config) {
+    const QString key = grokApiKey(config);
+    return !key.isEmpty() && !key.startsWith(QStringLiteral("YOUR_"));
 }
 
 bool Config::hasValidDeepgramKey(const AppConfig &config) {

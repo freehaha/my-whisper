@@ -65,6 +65,7 @@ QString normalizedTranscriptionBackend(QString value) {
         || value == QStringLiteral("assembly-ai")) {
         return QStringLiteral("assemblyai");
     }
+    if (value == QStringLiteral("grok_streaming")) return value;
     if (value == QStringLiteral("grok") || value == QStringLiteral("xai")) {
         return QStringLiteral("grok");
     }
@@ -204,7 +205,8 @@ bool Config::usesAssemblyAi(const AppConfig &config) {
 }
 
 bool Config::usesGrok(const AppConfig &config) {
-    return normalizedTranscriptionBackend(config.transcriptionBackend) == QStringLiteral("grok");
+    const auto backend = normalizedTranscriptionBackend(config.transcriptionBackend);
+    return backend == QStringLiteral("grok") || backend == QStringLiteral("grok_streaming");
 }
 
 QString Config::grokApiKey(const AppConfig &config) {

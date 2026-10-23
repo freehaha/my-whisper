@@ -11,9 +11,6 @@
 #include <limits>
 
 namespace {
-constexpr auto DeepgramHost = "api.deepgram.com";
-constexpr quint16 DeepgramPort = 443;
-constexpr auto DeepgramPath = "/v1/listen";
 constexpr auto WebSocketGuid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 QByteArray randomBytes(int count) {
@@ -40,21 +37,15 @@ DeepgramWebSocketClient::~DeepgramWebSocketClient() {
     }
 }
 
+qint64 DeepgramWebSocketClient::pendingBytes() const {
+    return m_socket ? m_socket->bytesToWrite() : 0;
+}
+
 bool DeepgramWebSocketClient::isOpen() const {
     return m_state == State::Open && m_socket && m_socket->state() == QAbstractSocket::ConnectedState;
 }
 
 void DeepgramWebSocketClient::connectToDeepgram(const QString &apiKey, int sampleRate, const QStringList &keyterms) {
-    abort();
-
-    m_state = State::Connecting;
-    m_failed = false;
-    m_closedCallbackEmitted = false;
-    m_buffer.clear();
-    m_fragmentBuffer.clear();
-    m_fragmentOpcode = 0;
-    m_apiKey = apiKey.trimmed();
-
     QUrlQuery query;
     query.addQueryItem(QStringLiteral("model"), QStringLiteral("nova-3"));
     query.addQueryItem(QStringLiteral("smart_format"), QStringLiteral("true"));
@@ -69,10 +60,34 @@ void DeepgramWebSocketClient::connectToDeepgram(const QString &apiKey, int sampl
             query.addQueryItem(QStringLiteral("keyterm"), trimmed);
         }
     }
-    m_requestTarget = QStringLiteral("%1?%2").arg(QString::fromLatin1(DeepgramPath), query.toString(QUrl::FullyEncoded));
+    QUrl url(QStringLiteral("wss://api.deepgram.com/v1/listen"));
+    url.setQuery(query);
+    connectToUrl(url, "Token " + apiKey.trimmed().toUtf8());
+}
 
+void DeepgramWebSocketClient::connectToUrl(const QUrl &url, const QByteArray &authorization) {
+    abort();
+    m_state = State::Connecting;
+    m_failed = false;
+    m_closedCallbackEmitted = false;
+    m_buffer.clear();
+    m_fragmentBuffer.clear();
+    m_fragmentOpcode = 0;
+    m_authorization = authorization;
+    m_secure = url.scheme() == QStringLiteral("wss");
+    m_host = url.host();
+    m_port = static_cast<quint16>(url.port(m_secure ? 443 : 80));
+    m_requestTarget = url.path(QUrl::FullyEncoded);
+    if (m_requestTarget.isEmpty()) m_requestTarget = QStringLiteral("/");
+    if (url.hasQuery()) m_requestTarget += QStringLiteral("?") + url.query(QUrl::FullyEncoded);
+    if ((url.scheme() != QStringLiteral("ws") && !m_secure) || m_host.isEmpty()
+        || authorization.contains('\r') || authorization.contains('\n')) {
+        fail(QStringLiteral("Invalid WebSocket URL or authorization."));
+        return;
+    }
     m_socket = new QSslSocket(this);
     connect(m_socket, &QSslSocket::encrypted, this, [this]() { sendHandshake(); });
+    connect(m_socket, &QSslSocket::connected, this, [this]() { if (!m_secure) sendHandshake(); });
     connect(m_socket, &QSslSocket::readyRead, this, [this]() { handleReadyRead(); });
     connect(m_socket, &QSslSocket::disconnected, this, [this]() {
         if (!m_failed) {
@@ -91,7 +106,8 @@ void DeepgramWebSocketClient::connectToDeepgram(const QString &apiKey, int sampl
         fail(messages.isEmpty() ? QStringLiteral("TLS error") : messages.join(QStringLiteral("; ")));
     });
 
-    m_socket->connectToHostEncrypted(QString::fromLatin1(DeepgramHost), DeepgramPort);
+    if (m_secure) m_socket->connectToHostEncrypted(m_host, m_port);
+    else m_socket->connectToHost(m_host, m_port);
 }
 
 void DeepgramWebSocketClient::sendBinaryMessage(const QByteArray &payload) {
@@ -136,12 +152,12 @@ void DeepgramWebSocketClient::sendHandshake() {
 
     QByteArray request;
     request += "GET " + m_requestTarget.toUtf8() + " HTTP/1.1\r\n";
-    request += "Host: " + QByteArray(DeepgramHost) + "\r\n";
+    request += "Host: " + m_host.toUtf8() + ":" + QByteArray::number(m_port) + "\r\n";
     request += "Upgrade: websocket\r\n";
     request += "Connection: Upgrade\r\n";
     request += "Sec-WebSocket-Key: " + key + "\r\n";
     request += "Sec-WebSocket-Version: 13\r\n";
-    request += "Authorization: Token " + m_apiKey.toUtf8() + "\r\n";
+    request += "Authorization: " + m_authorization + "\r\n";
     request += "User-Agent: MyWhisperQt\r\n";
     request += "\r\n";
     m_socket->write(request);

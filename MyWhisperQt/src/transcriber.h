@@ -10,6 +10,7 @@ class AssemblyAiStreamingTranscriber;
 class DeepgramStreamingTranscriber;
 class DeepgramTranscriber;
 class GrokTranscriber;
+class GrokStreamingTranscriber;
 
 class Transcriber : public QObject {
     Q_OBJECT
@@ -32,6 +33,7 @@ signals:
 
 private:
     GrokTranscriber *m_grokTranscriber = nullptr;
+    GrokStreamingTranscriber *m_grokStreamingTranscriber = nullptr;
     DeepgramTranscriber *m_deepgramTranscriber = nullptr;
     DeepgramStreamingTranscriber *m_deepgramStreamingTranscriber = nullptr;
     AssemblyAiStreamingTranscriber *m_assemblyAiTranscriber = nullptr;

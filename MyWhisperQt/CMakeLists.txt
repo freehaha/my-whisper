@@ -30,6 +30,7 @@ set(MYWHISPER_QT_SOURCES
     src/deepgram_streaming_transcriber.cpp
     src/deepgram_transcriber.cpp
     src/grok_transcriber.cpp
+    src/grok_streaming_transcriber.cpp
     src/deepgram_websocket_client.cpp
     src/global_hotkey_manager.cpp
     src/history_dialog.cpp
@@ -65,6 +66,7 @@ qt_add_executable(MyWhisperQt
     src/deepgram_streaming_transcriber.h
     src/deepgram_transcriber.h
     src/grok_transcriber.h
+    src/grok_streaming_transcriber.h
     src/deepgram_websocket_client.h
     src/global_hotkey_manager.h
     src/history_dialog.h
@@ -133,6 +135,7 @@ if(BUILD_TESTING)
     add_executable(GrokTranscriberTest
         tests/grok_transcriber_test.cpp
         src/grok_transcriber.cpp
+        src/grok_streaming_transcriber.cpp
         src/config.cpp
         src/transcriber.cpp
         src/deepgram_transcriber.cpp
@@ -145,6 +148,24 @@ if(BUILD_TESTING)
     target_link_libraries(GrokTranscriberTest PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Multimedia)
     add_test(NAME GrokTranscriberTest COMMAND GrokTranscriberTest)
     set_tests_properties(GrokTranscriberTest PROPERTIES TIMEOUT 60)
+    add_executable(GrokStreamingTest
+        tests/grok_streaming_test.cpp
+        src/grok_streaming_transcriber.cpp
+        src/deepgram_websocket_client.cpp
+        src/config.cpp
+    )
+    target_include_directories(GrokStreamingTest PRIVATE src)
+    target_link_libraries(GrokStreamingTest PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Multimedia)
+    add_executable(GrokStreamingProbe
+        tests/grok_streaming_probe.cpp
+        src/grok_streaming_transcriber.cpp
+        src/deepgram_websocket_client.cpp
+        src/config.cpp
+    )
+    target_include_directories(GrokStreamingProbe PRIVATE src)
+    target_link_libraries(GrokStreamingProbe PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Multimedia)
+    add_test(NAME GrokStreamingTest COMMAND GrokStreamingTest)
+    set_tests_properties(GrokStreamingTest PROPERTIES TIMEOUT 60)
 endif()
 
 install(TARGETS MyWhisperQt SoundProbe

@@ -46,6 +46,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     m_transcriptionBackendCombo->addItem(tr("Deepgram (upload after recording)"), QStringLiteral("deepgram"));
     m_transcriptionBackendCombo->addItem(tr("AssemblyAI (streaming)"), QStringLiteral("assemblyai"));
     m_transcriptionBackendCombo->addItem(tr("Grok Voice Transcribe 2.0 (upload after recording)"), QStringLiteral("grok"));
+    m_transcriptionBackendCombo->addItem(tr("Grok Voice Transcribe 2.0 (streaming)"), QStringLiteral("grok_streaming"));
     m_grokApiKeyEdit = new QLineEdit(apiGroup);
     m_grokApiKeyEdit->setEchoMode(QLineEdit::PasswordEchoOnEdit);
     m_grokApiKeyEdit->setPlaceholderText(tr("xAI API key, or use XAI_API_KEY"));
@@ -168,7 +169,7 @@ SettingsDialog::~SettingsDialog() {
 
 void SettingsDialog::setConfig(const AppConfig &config) {
     m_config = config;
-    const int transcriptionBackendIndex = m_transcriptionBackendCombo->findData(Config::usesGrok(config) ? QStringLiteral("grok") : (Config::usesAssemblyAi(config) ? QStringLiteral("assemblyai") : QStringLiteral("deepgram")));
+    const int transcriptionBackendIndex = m_transcriptionBackendCombo->findData(Config::usesGrok(config) ? config.transcriptionBackend.trimmed().toLower().replace(QStringLiteral("xai"), QStringLiteral("grok")) : (Config::usesAssemblyAi(config) ? QStringLiteral("assemblyai") : QStringLiteral("deepgram")));
     m_grokApiKeyEdit->setText(config.grokApiKey);
     m_transcriptionBackendCombo->setCurrentIndex(transcriptionBackendIndex >= 0 ? transcriptionBackendIndex : 0);
     m_deepgramApiKeyEdit->setText(config.deepgramApiKey);
@@ -295,7 +296,7 @@ void SettingsDialog::syncTranscriptionState() {
     const QString backend = m_transcriptionBackendCombo->currentData().toString();
     const bool useAssemblyAi = backend == QStringLiteral("assemblyai");
 
-    m_grokApiKeyEdit->setEnabled(backend == QStringLiteral("grok"));
+    m_grokApiKeyEdit->setEnabled(backend == QStringLiteral("grok") || backend == QStringLiteral("grok_streaming"));
     m_deepgramApiKeyEdit->setEnabled(backend == QStringLiteral("deepgram"));
     m_deepgramKeywordsEdit->setEnabled(backend == QStringLiteral("deepgram"));
     m_assemblyAiApiKeyEdit->setEnabled(useAssemblyAi);

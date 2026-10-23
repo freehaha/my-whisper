@@ -3,6 +3,7 @@
 #include "assembly_ai_streaming_transcriber.h"
 #include "config.h"
 #include "grok_transcriber.h"
+#include "grok_streaming_transcriber.h"
 #include "deepgram_streaming_transcriber.h"
 #include "deepgram_transcriber.h"
 
@@ -11,6 +12,9 @@ Transcriber::Transcriber(QObject *parent)
     , m_deepgramTranscriber(new DeepgramTranscriber(this))
     , m_deepgramStreamingTranscriber(new DeepgramStreamingTranscriber(this))
     , m_assemblyAiTranscriber(new AssemblyAiStreamingTranscriber(this)) {
+    m_grokStreamingTranscriber = new GrokStreamingTranscriber(this);
+    connect(m_grokStreamingTranscriber, &GrokStreamingTranscriber::transcriptionReady, this, &Transcriber::transcriptionReady);
+    connect(m_grokStreamingTranscriber, &GrokStreamingTranscriber::errorOccurred, this, &Transcriber::errorOccurred);
     m_grokTranscriber = new GrokTranscriber(this);
     connect(m_grokTranscriber, &GrokTranscriber::transcriptionReady, this, &Transcriber::transcriptionReady);
     connect(m_grokTranscriber, &GrokTranscriber::errorOccurred, this, &Transcriber::errorOccurred);
@@ -41,7 +45,10 @@ void Transcriber::transcribe(const QString &audioFilePath, const AppConfig &conf
 
 void Transcriber::startStreaming(const AppConfig &config, const QAudioFormat &format) {
     if (Config::usesGrok(config)) {
-        return; // Upload the completed WAV after recording stops.
+        if (config.transcriptionBackend.trimmed().toLower() == QStringLiteral("grok_streaming")) {
+            m_grokStreamingTranscriber->start(config, format);
+        }
+        return;
     }
     if (Config::usesAssemblyAi(config)) {
         m_assemblyAiTranscriber->start(config, format);
@@ -52,6 +59,10 @@ void Transcriber::startStreaming(const AppConfig &config, const QAudioFormat &fo
 }
 
 void Transcriber::streamAudio(const QByteArray &data) {
+    if (m_grokStreamingTranscriber->isStreaming()) {
+        m_grokStreamingTranscriber->streamAudio(data);
+        return;
+    }
     if (m_assemblyAiTranscriber->isStreaming()) {
         m_assemblyAiTranscriber->streamAudio(data);
         return;
@@ -63,6 +74,10 @@ void Transcriber::streamAudio(const QByteArray &data) {
 }
 
 void Transcriber::finishStreaming() {
+    if (m_grokStreamingTranscriber->isStreaming()) {
+        m_grokStreamingTranscriber->finish();
+        return;
+    }
     if (m_assemblyAiTranscriber->isStreaming()) {
         m_assemblyAiTranscriber->finish();
         return;
@@ -74,10 +89,11 @@ void Transcriber::finishStreaming() {
 }
 
 void Transcriber::cancelStreaming() {
+    m_grokStreamingTranscriber->cancel();
     m_assemblyAiTranscriber->cancel();
     m_deepgramStreamingTranscriber->cancel();
 }
 
 bool Transcriber::isStreaming() const {
-    return m_assemblyAiTranscriber->isStreaming() || m_deepgramStreamingTranscriber->isStreaming();
+    return m_grokStreamingTranscriber->isStreaming() || m_assemblyAiTranscriber->isStreaming() || m_deepgramStreamingTranscriber->isStreaming();
 }
